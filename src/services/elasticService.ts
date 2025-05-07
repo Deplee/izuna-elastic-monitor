@@ -24,6 +24,10 @@ export interface Node {
   ip: string;
   diskAvailable: string;
   diskTotal: string;
+  diskFree: string;
+  diskAvailableRaw: number;
+  diskTotalRaw: number;
+  diskFreeRaw: number;
   cpuUsage: number;
   memoryUsage: number;
   heapPercent: number;
@@ -183,6 +187,7 @@ class ElasticService {
         const node = nodesData[nodeId];
         const totalDiskBytes = node.fs?.total?.total_in_bytes || 0;
         const availableDiskBytes = node.fs?.total?.available_in_bytes || 0;
+        const freeDiskBytes = node.fs?.total?.free_in_bytes || 0;
         
         // Расчет потребления ресурсов
         const cpuUsage = node.process?.cpu?.percent || 0;
@@ -206,6 +211,10 @@ class ElasticService {
           ip: node.ip || '',
           diskAvailable: this.formatBytes(availableDiskBytes),
           diskTotal: this.formatBytes(totalDiskBytes),
+          diskFree: this.formatBytes(freeDiskBytes),
+          diskAvailableRaw: availableDiskBytes,
+          diskTotalRaw: totalDiskBytes,
+          diskFreeRaw: freeDiskBytes,
           cpuUsage,
           memoryUsage,
           heapPercent,

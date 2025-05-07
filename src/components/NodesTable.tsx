@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Node } from '@/services/elasticService';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -31,6 +30,12 @@ const NodesTable: React.FC<NodesTableProps> = ({ nodes, isLoading, error, onRefr
   const getProgressColor = (value: number) => {
     if (value > 80) return 'bg-status-danger';
     if (value > 60) return 'bg-status-warning';
+    return 'bg-status-healthy';
+  };
+
+  const getDiskProgressColor = (percent: number) => {
+    if (percent > 80) return 'bg-status-danger';
+    if (percent > 60) return 'bg-status-warning';
     return 'bg-status-healthy';
   };
 
@@ -135,8 +140,36 @@ const NodesTable: React.FC<NodesTableProps> = ({ nodes, isLoading, error, onRefr
                     </div>
                   </TableCell>
                   <TableCell>
-                    <div className="text-xs">
-                      {node.diskAvailable} / {node.diskTotal}
+                    <div className="w-24">
+                      {(() => {
+                        const used = node.diskTotalRaw - node.diskAvailableRaw;
+                        const percent = node.diskTotalRaw > 0 ? Math.round((used / node.diskTotalRaw) * 100) : 0;
+                        return <>
+                          <Progress
+                            value={percent}
+                            className="h-2"
+                            indicatorClassName={getDiskProgressColor(percent)}
+                          />
+                          <div className="text-xs mt-1 text-right">{percent}% использовано</div>
+                        </>;
+                      })()}
+                    </div>
+                    <div className="text-xs space-y-1 mt-2">
+                      <div className="flex items-center gap-1">
+                        <span role="img" aria-label="total">💾</span>
+                        <span className="text-muted-foreground">Общий размер ФС:</span>
+                        <span className="font-bold ml-1">{node.diskTotal}</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <span role="img" aria-label="free">🟩</span>
+                        <span className="text-muted-foreground">Свободно на ФС:</span>
+                        <span className="font-bold ml-1 text-green-400">{node.diskFree}</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <span role="img" aria-label="available">🟦</span>
+                        <span className="text-muted-foreground">Доступно для записи:</span>
+                        <span className="font-bold ml-1 text-blue-400">{node.diskAvailable}</span>
+                      </div>
                     </div>
                   </TableCell>
                   <TableCell>
