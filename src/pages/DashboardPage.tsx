@@ -1041,41 +1041,12 @@ const DashboardPage: React.FC = () => {
               {allocationLoading ? (
                 <div>Загрузка allocation explain...</div>
               ) : allocationError ? (
-                (() => {
-                  // Try to parse JSON error
-                  let isNoUnassigned = false;
-                  try {
-                    const errObj = JSON.parse(allocationError);
-                    if (
-                      errObj?.error?.reason &&
-                      errObj.error.reason.includes('No shard was specified in the request which means the response should explain a randomly-chosen unassigned shard, but there are no unassigned shards in this cluster')
-                    ) {
-                      isNoUnassigned = true;
-                    }
-                  } catch {}
-                  if (isNoUnassigned) {
-                    return <div className="text-muted-foreground">Нет нераспределенных шардов для анализа</div>;
-                  }
-                  return /no unassigned shards/i.test(allocationError)
-                    ? <div className="text-muted-foreground">Нет нераспределенных шардов для анализа</div>
-                    : <div className="text-red-500">{allocationError}</div>;
-                })()
+                /400/.test(allocationError)
+                  ? <div className="text-muted-foreground">Нет UNASSIGNED шардов</div>
+                  : <div className="text-red-500">{allocationError}</div>
               ) : allocation ? (
                 (() => {
                   const str = typeof allocation === 'string' ? allocation : JSON.stringify(allocation, null, 2);
-                  if (/no unassigned shards/i.test(str)) {
-                    return <div className="text-muted-foreground">Нет нераспределенных шардов для анализа</div>;
-                  }
-                  // Also check for the specific error in JSON
-                  try {
-                    const obj = typeof allocation === 'string' ? JSON.parse(allocation) : allocation;
-                    if (
-                      obj?.error?.reason &&
-                      obj.error.reason.includes('No shard was specified in the request which means the response should explain a randomly-chosen unassigned shard, but there are no unassigned shards in this cluster')
-                    ) {
-                      return <div className="text-muted-foreground">Нет нераспределенных шардов для анализа</div>;
-                    }
-                  } catch {}
                   return <pre className="text-xs bg-muted p-2 rounded overflow-x-auto max-h-96 whitespace-pre-wrap">{str}</pre>;
                 })()
               ) : (
