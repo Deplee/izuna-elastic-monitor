@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { IndexInfo } from '@/services/elasticService';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -16,6 +15,8 @@ interface IndicesTableProps {
 
 const IndicesTable: React.FC<IndicesTableProps> = ({ indices, isLoading, error, onRefresh }) => {
   const [searchTerm, setSearchTerm] = useState('');
+  const [sortField, setSortField] = useState<'docsCount' | 'storageSize' | 'primaryShards' | 'replicaShards' | null>(null);
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -30,9 +31,43 @@ const IndicesTable: React.FC<IndicesTableProps> = ({ indices, isLoading, error, 
     }
   };
 
-  const filteredIndices = indices?.filter(index => 
+  const parseSize = (sizeStr: string) => {
+    if (!sizeStr) return 0;
+    const units = { b: 1, kb: 1e3, mb: 1e6, gb: 1e9, tb: 1e12 };
+    const match = sizeStr.toLowerCase().match(/([\d.]+)\s*(b|kb|mb|gb|tb)/);
+    if (!match) return 0;
+    const value = parseFloat(match[1]);
+    const unit = match[2];
+    return value * (units[unit] || 1);
+  };
+
+  let filteredIndices = indices?.filter(index => 
     index.name.toLowerCase().includes(searchTerm.toLowerCase())
   ) || [];
+
+  if (sortField) {
+    filteredIndices = [...filteredIndices].sort((a, b) => {
+      let aValue: number, bValue: number;
+      if (sortField === 'storageSize') {
+        aValue = parseSize(a.storageSize);
+        bValue = parseSize(b.storageSize);
+      } else {
+        aValue = a[sortField] as number;
+        bValue = b[sortField] as number;
+      }
+      if (sortOrder === 'asc') return aValue - bValue;
+      return bValue - aValue;
+    });
+  }
+
+  const handleSort = (field: typeof sortField) => {
+    if (sortField === field) {
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortOrder('desc');
+    }
+  };
 
   if (isLoading) {
     return (
@@ -90,10 +125,18 @@ const IndicesTable: React.FC<IndicesTableProps> = ({ indices, isLoading, error, 
                 <TableRow>
                   <TableHead>Статус</TableHead>
                   <TableHead>Индекс</TableHead>
-                  <TableHead>Документов</TableHead>
-                  <TableHead>Размер</TableHead>
-                  <TableHead>Первичных шардов</TableHead>
-                  <TableHead>Реплик</TableHead>
+                  <TableHead onClick={() => handleSort('docsCount')} style={{cursor: 'pointer'}}>
+                    Документов {sortField === 'docsCount' ? (sortOrder === 'asc' ? '▲' : '▼') : ''}
+                  </TableHead>
+                  <TableHead onClick={() => handleSort('storageSize')} style={{cursor: 'pointer'}}>
+                    Размер {sortField === 'storageSize' ? (sortOrder === 'asc' ? '▲' : '▼') : ''}
+                  </TableHead>
+                  <TableHead onClick={() => handleSort('primaryShards')} style={{cursor: 'pointer'}}>
+                    Первичных шардов {sortField === 'primaryShards' ? (sortOrder === 'asc' ? '▲' : '▼') : ''}
+                  </TableHead>
+                  <TableHead onClick={() => handleSort('replicaShards')} style={{cursor: 'pointer'}}>
+                    Реплик {sortField === 'replicaShards' ? (sortOrder === 'asc' ? '▲' : '▼') : ''}
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
