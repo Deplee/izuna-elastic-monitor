@@ -53,6 +53,13 @@ interface RelocatingShardInfo {
   state: string;
 }
 
+interface InitializingShardInfo {
+  index: string;
+  shard: string;
+  node: string;
+  state: string;
+}
+
 class ElasticService {
   private config: ElasticConnectionConfig | null = null;
 
@@ -266,18 +273,57 @@ class ElasticService {
       }
       // Фильтруем только RELOCATING
       const relocating = result.data.filter((shard: any) => shard.state === 'RELOCATING');
-      const relocatingShards: RelocatingShardInfo[] = relocating.map((shard: any) => ({
-        index: shard.index,
-        shard: shard.shard,
-        fromNode: shard['node'],
-        toNode: shard['target'],
-        state: shard.state,
-      }));
+      const relocatingShards: RelocatingShardInfo[] = relocating.map((shard: any) => {
+        const nodeField = shard['node'] || '';
+        const [fromNode, rest] = nodeField.split('->').map(s => s.trim());
+        // Имя ноды назначения — последнее слово после '->'
+        let toNode = '';
+        if (rest) {
+          const parts = rest.split(' ');
+          toNode = parts[parts.length - 1];
+        }
+        return {
+          index: shard.index,
+          shard: shard.shard,
+          fromNode,
+          toNode,
+          state: shard.state,
+        };
+      });
       return { success: true, data: relocatingShards };
     } catch (error) {
       return {
         success: false,
         error: `Ошибка получения перемещаемых шардов: ${error instanceof Error ? error.message : String(error)}`,
+      };
+    }
+  }
+
+  async getInitializingShards(): Promise<ElasticApiResponse<InitializingShardInfo[]>> {
+    try {
+      const result = await this.fetchWithAuth<any>(
+        '/_cat/shards?format=json'
+      );
+      if (!result.success) return result;
+      if (!Array.isArray(result.data)) {
+        return {
+          success: false,
+          error: 'Ошибка формата данных: информация о шардах имеет неверный формат',
+        };
+      }
+      // Фильтруем только INITIALIZING
+      const initializing = result.data.filter((shard: any) => shard.state === 'INITIALIZING');
+      const initializingShards: InitializingShardInfo[] = initializing.map((shard: any) => ({
+        index: shard.index,
+        shard: shard.shard,
+        node: shard['node'],
+        state: shard.state,
+      }));
+      return { success: true, data: initializingShards };
+    } catch (error) {
+      return {
+        success: false,
+        error: `Ошибка получения инициализируемых шардов: ${error instanceof Error ? error.message : String(error)}`,
       };
     }
   }

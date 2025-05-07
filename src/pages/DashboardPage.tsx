@@ -23,6 +23,10 @@ const DashboardPage: React.FC = () => {
   const [relocatingLoading, setRelocatingLoading] = useState(true);
   const [relocatingError, setRelocatingError] = useState<string | null>(null);
 
+  const [initializingShards, setInitializingShards] = useState<any[]>([]);
+  const [initializingLoading, setInitializingLoading] = useState(true);
+  const [initializingError, setInitializingError] = useState<string | null>(null);
+
   const { toast } = useToast();
 
   const fetchClusterHealth = async () => {
@@ -96,11 +100,29 @@ const DashboardPage: React.FC = () => {
     }
   };
 
+  const fetchInitializingShards = async () => {
+    setInitializingLoading(true);
+    setInitializingError(null);
+    try {
+      const response = await elasticService.getInitializingShards();
+      if (response.success && response.data) {
+        setInitializingShards(response.data);
+      } else {
+        setInitializingError(response.error || 'Не удалось получить инициализируемые шарды');
+      }
+    } catch (error) {
+      setInitializingError(`Ошибка: ${error instanceof Error ? error.message : 'Неизвестная ошибка'}`);
+    } finally {
+      setInitializingLoading(false);
+    }
+  };
+
   const fetchAllData = () => {
     fetchClusterHealth();
     fetchNodes();
     fetchIndices();
     fetchRelocatingShards();
+    fetchInitializingShards();
   };
 
   useEffect(() => {
@@ -214,6 +236,40 @@ const DashboardPage: React.FC = () => {
                 </table>
               ) : (
                 <div className="text-muted-foreground px-2 py-1">Нет перемещаемых шардов</div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {initializingLoading ? (
+          <div className="metric-card mt-4">Загрузка инициализируемых шардов...</div>
+        ) : initializingError ? (
+          <div className="metric-card mt-4 text-red-500">{initializingError}</div>
+        ) : (
+          <div className="metric-card mt-4">
+            <h3 className="font-medium mb-2">Инициализируемые шарды</h3>
+            <div className="overflow-x-auto">
+              {initializingShards.length > 0 ? (
+                <table className="min-w-full text-sm">
+                  <thead>
+                    <tr>
+                      <th className="px-2 py-1 text-left">Индекс</th>
+                      <th className="px-2 py-1 text-left">Шард</th>
+                      <th className="px-2 py-1 text-left">Нода</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {initializingShards.map((shard, idx) => (
+                      <tr key={idx}>
+                        <td className="px-2 py-1">{shard.index}</td>
+                        <td className="px-2 py-1">{shard.shard}</td>
+                        <td className="px-2 py-1">{shard.node}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : (
+                <div className="text-muted-foreground px-2 py-1">Нет инициализируемых шардов</div>
               )}
             </div>
           </div>
