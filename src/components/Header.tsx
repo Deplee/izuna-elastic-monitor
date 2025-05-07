@@ -11,7 +11,7 @@ const Header: React.FC = () => {
     <header className="bg-card py-4 px-6 border-b border-border flex justify-between items-center">
       <div className="flex items-center space-x-2">
         <Database className="h-6 w-6 text-elastic" />
-        <span className="font-bold text-xl">Elasticsearch Мониторинг</span>
+        <span className="font-bold text-xl">ElasticSearch Мониторинг</span>
       </div>
       
       <div className="flex items-center">

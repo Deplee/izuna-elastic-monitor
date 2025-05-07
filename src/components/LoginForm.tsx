@@ -51,7 +51,7 @@ const LoginForm: React.FC = () => {
     <div className="flex justify-center items-center min-h-screen bg-background p-4">
       <Card className="w-full max-w-md shadow-lg">
         <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl font-bold text-center">Elasticsearch Мониторинг</CardTitle>
+          <CardTitle className="text-2xl font-bold text-center">ElasticSearch Мониторинг</CardTitle>
           <CardDescription className="text-center">
             Введите данные подключения к кластеру Elasticsearch
           </CardDescription>
