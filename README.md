@@ -32,7 +32,7 @@ primary (чекбокс) — если отмечено, анализируетс
     - Если сервер возвращает успешный ответ, он отображается в виде prettified JSON.
     - Если сервер возвращает ошибку 400 с текстом, что нет нераспределённых шардов (или с reason, содержащим "No shard was specified in the request which means the response should explain a randomly-chosen unassigned shard, but there are no unassigned shards in this cluster"), выводится сообщение:
     ```text
-    "Нет нераспределенных шардов для анализа"
+    "Нет UNASSIGNED шардов"
     ```
     - Если ошибка другая — выводится текст ошибки.
 
