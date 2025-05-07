@@ -6,6 +6,33 @@ import IndicesTable from '@/components/IndicesTable';
 import elasticService, { ClusterHealth, Node, IndexInfo } from '@/services/elasticService';
 import { useToast } from '@/components/ui/use-toast';
 
+// Функция для преобразования строки размера в байты
+function parseSizeToBytes(sizeStr: string): number {
+  if (!sizeStr) return 0;
+  const units: { [key: string]: number } = {
+    b: 1,
+    kb: 1024,
+    mb: 1024 * 1024,
+    gb: 1024 * 1024 * 1024,
+    tb: 1024 * 1024 * 1024 * 1024,
+    pb: 1024 * 1024 * 1024 * 1024 * 1024,
+  };
+  const match = sizeStr.toLowerCase().match(/([\d.]+)\s*(b|kb|mb|gb|tb|pb)/);
+  if (!match) return 0;
+  const value = parseFloat(match[1]);
+  const unit = match[2];
+  return value * (units[unit] || 1);
+}
+
+// Функция для красивого отображения размера
+function formatBytes(bytes: number, decimals = 1): string {
+  if (bytes === 0) return '0 B';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB', 'TB', 'PB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(decimals)) + ' ' + sizes[i];
+}
+
 const DashboardPage: React.FC = () => {
   const [clusterHealth, setClusterHealth] = useState<ClusterHealth | null>(null);
   const [healthLoading, setHealthLoading] = useState(true);
@@ -181,16 +208,12 @@ const DashboardPage: React.FC = () => {
               </div>
               
               <div className="metric-card">
-                <h3 className="font-medium mb-2">Общий размер</h3>
+                <h3 className="font-medium mb-2">Общий размер Индексов</h3>
                 <p className="text-3xl font-bold">
                   {indicesLoading ? (
                     <span className="animate-pulse">...</span>
                   ) : indices && indices.length > 0 ? (
-                    indices.reduce((total, index) => {
-                      const sizeMatch = index.storageSize.match(/(\d+(\.\d+)?)/);
-                      const size = sizeMatch ? parseFloat(sizeMatch[1]) : 0;
-                      return total + size;
-                    }, 0).toFixed(1) + " B"
+                    formatBytes(indices.reduce((total, index) => total + parseSizeToBytes(index.storageSize), 0))
                   ) : "0 B"}
                 </p>
               </div>
