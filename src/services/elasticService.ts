@@ -31,7 +31,15 @@ export interface Node {
   cpuUsage: number;
   memoryUsage: number;
   heapPercent: number;
+  ramPercent?: number;
+  ramUsed?: number;
+  ramTotal?: number;
+  ramUsedStr?: string;
+  ramTotalStr?: string;
   status: 'green' | 'yellow' | 'red';
+  load1m?: number;
+  load5m?: number;
+  load15m?: number;
 }
 
 export interface IndexInfo {
@@ -71,6 +79,21 @@ interface UnassignedShardInfo {
   state: string;
 }
 
+interface ThreadPoolInfo {
+  nodeId: string;
+  nodeName: string;
+  pools: Array<{
+    name: string;
+    active: number;
+    queue: number;
+    rejected: number;
+    completed: number;
+    threads: number;
+    largest: number;
+    // можно добавить другие поля при необходимости
+  }>;
+}
+
 class ElasticService {
   private config: ElasticConnectionConfig | null = null;
 
@@ -100,7 +123,7 @@ class ElasticService {
     return !!this.getConfig();
   }
 
-  private async fetchWithAuth<T>(endpoint: string): Promise<ElasticApiResponse<T>> {
+  private async fetchWithAuth<T>(endpoint: string, asText = false): Promise<ElasticApiResponse<T>> {
     const config = this.getConfig();
     
     if (!config) {
@@ -127,7 +150,7 @@ class ElasticService {
         };
       }
       
-      const data = await response.json();
+      const data = asText ? await response.text() : await response.json();
       return { success: true, data };
     } catch (error) {
       return { 
@@ -210,6 +233,20 @@ class ElasticService {
         if (nodesVersion && nodesVersion[nodeId] && nodesVersion[nodeId].version) {
           version = nodesVersion[nodeId].version;
         }
+        // RAM (оперативная память) и Load Average из os
+        let ramPercent, ramUsed, ramTotal, ramUsedStr, ramTotalStr, load1m, load5m, load15m;
+        if (node.os && node.os.mem) {
+          ramPercent = node.os.mem.used_percent;
+          ramUsed = node.os.mem.used_in_bytes;
+          ramTotal = node.os.mem.total_in_bytes;
+          ramUsedStr = this.formatBytes(ramUsed);
+          ramTotalStr = this.formatBytes(ramTotal);
+        }
+        if (node.os && node.os.cpu && node.os.cpu.load_average) {
+          load1m = node.os.cpu.load_average['1m'];
+          load5m = node.os.cpu.load_average['5m'];
+          load15m = node.os.cpu.load_average['15m'];
+        }
         return {
           id: nodeId,
           name: node.name,
@@ -226,7 +263,15 @@ class ElasticService {
           cpuUsage,
           memoryUsage,
           heapPercent,
-          status
+          ramPercent,
+          ramUsed,
+          ramTotal,
+          ramUsedStr,
+          ramTotalStr,
+          status,
+          load1m,
+          load5m,
+          load15m
         };
       });
       return { success: true, data: nodes };
@@ -387,6 +432,180 @@ class ElasticService {
       return {
         success: false,
         error: `Ошибка получения общего количества документов: ${error instanceof Error ? error.message : String(error)}`,
+      };
+    }
+  }
+
+  async getThreadPools(): Promise<ElasticApiResponse<ThreadPoolInfo[]>> {
+    try {
+      const result = await this.fetchWithAuth<any>('/_nodes/stats/thread_pool');
+      if (!result.success) return result;
+      const nodesData = result.data?.nodes;
+      if (!nodesData || typeof nodesData !== 'object') {
+        return {
+          success: false,
+          error: 'Ошибка формата данных: информация о thread pool отсутствует или имеет неверный формат',
+        };
+      }
+      const threadPools: ThreadPoolInfo[] = Object.keys(nodesData).map(nodeId => {
+        const node = nodesData[nodeId];
+        const pools: any[] = [];
+        if (node.thread_pool) {
+          for (const poolName in node.thread_pool) {
+            const pool = node.thread_pool[poolName];
+            pools.push({
+              name: poolName,
+              active: pool.active,
+              queue: pool.queue,
+              rejected: pool.rejected,
+              completed: pool.completed,
+              threads: pool.threads,
+              largest: pool.largest,
+            });
+          }
+        }
+        return {
+          nodeId,
+          nodeName: node.name || nodeId,
+          pools,
+        };
+      });
+      return { success: true, data: threadPools };
+    } catch (error) {
+      return {
+        success: false,
+        error: `Ошибка получения thread pool: ${error instanceof Error ? error.message : String(error)}`,
+      };
+    }
+  }
+
+  async getHotThreads(): Promise<ElasticApiResponse<any>> {
+    try {
+      const result = await this.fetchWithAuth<any>('/_nodes/hot_threads', true);
+      if (!result.success) return result;
+      return { success: true, data: result.data };
+    } catch (error) {
+      return { success: false, error: `Ошибка получения hot threads: ${error instanceof Error ? error.message : String(error)}` };
+    }
+  }
+
+  async getIndexIndexingStats(index: string): Promise<ElasticApiResponse<any>> {
+    try {
+      const result = await this.fetchWithAuth<any>(`/${index}/_stats?metric=indexing`);
+      if (!result.success) return result;
+      return { success: true, data: result.data };
+    } catch (error) {
+      return { success: false, error: `Ошибка получения статистики индексации для индекса ${index}: ${error instanceof Error ? error.message : String(error)}` };
+    }
+  }
+
+  async getAllIndicesIndexingStats(): Promise<ElasticApiResponse<any>> {
+    try {
+      const result = await this.fetchWithAuth<any>(`/_stats?metric=indexing`);
+      if (!result.success) return result;
+      return { success: true, data: result.data };
+    } catch (error) {
+      return { success: false, error: `Ошибка получения статистики индексации по всем индексам: ${error instanceof Error ? error.message : String(error)}` };
+    }
+  }
+
+  async getNodesIndexingStats(): Promise<ElasticApiResponse<any>> {
+    try {
+      const result = await this.fetchWithAuth<any>(`/_nodes/stats/indices?filter_path=**.indexing.index_time_in_millis`);
+      if (!result.success) return result;
+      return { success: true, data: result.data };
+    } catch (error) {
+      return { success: false, error: `Ошибка получения статистики индексации по узлам: ${error instanceof Error ? error.message : String(error)}` };
+    }
+  }
+
+  async getPendingTasks(): Promise<ElasticApiResponse<any>> {
+    try {
+      const result = await this.fetchWithAuth<any>('/_cluster/pending_tasks');
+      if (!result.success) return result;
+      return { success: true, data: result.data };
+    } catch (error) {
+      return { success: false, error: `Ошибка получения очереди задач: ${error instanceof Error ? error.message : String(error)}` };
+    }
+  }
+
+  async getSlowlog(): Promise<ElasticApiResponse<any>> {
+    try {
+      const result = await this.fetchWithAuth<any>('/_slowlog');
+      if (!result.success) return result;
+      return { success: true, data: result.data };
+    } catch (error) {
+      return { success: false, error: `Ошибка получения медленных запросов: ${error instanceof Error ? error.message : String(error)}` };
+    }
+  }
+
+  async getActiveTasks(): Promise<ElasticApiResponse<any>> {
+    try {
+      const result = await this.fetchWithAuth<any>('/_tasks?detailed');
+      if (!result.success) return result;
+      return { success: true, data: result.data };
+    } catch (error) {
+      return { success: false, error: `Ошибка получения активных задач: ${error instanceof Error ? error.message : String(error)}` };
+    }
+  }
+
+  async getAllocationExplain(): Promise<ElasticApiResponse<any>> {
+    try {
+      const result = await this.fetchWithAuth<any>('/_cluster/allocation/explain');
+      if (!result.success) return result;
+      return { success: true, data: result.data };
+    } catch (error) {
+      return { success: false, error: `Ошибка получения allocation explain: ${error instanceof Error ? error.message : String(error)}` };
+    }
+  }
+
+  async getSnapshots(): Promise<ElasticApiResponse<any>> {
+    try {
+      const result = await this.fetchWithAuth<any>('/_cat/snapshots?v', true);
+      if (!result.success) return result;
+      return { success: true, data: result.data };
+    } catch (error) {
+      return { success: false, error: `Ошибка получения списка снапшотов: ${error instanceof Error ? error.message : String(error)}` };
+    }
+  }
+
+  async getSnapshotStatus(repo: string): Promise<ElasticApiResponse<any>> {
+    try {
+      const result = await this.fetchWithAuth<any>(`/_snapshot/${repo}/_status`);
+      if (!result.success) return result;
+      return { success: true, data: result.data };
+    } catch (error) {
+      return { success: false, error: `Ошибка получения статуса восстановления: ${error instanceof Error ? error.message : String(error)}` };
+    }
+  }
+
+  async getAllocationExplainWithBody(body: any): Promise<ElasticApiResponse<any>> {
+    const config = this.getConfig();
+    if (!config) {
+      return { success: false, error: 'Нет данных для подключения к Elasticsearch' };
+    }
+    const headers = new Headers();
+    headers.set('Authorization', 'Basic ' + btoa(`${config.username}:${config.password}`));
+    headers.set('Content-Type', 'application/json');
+    try {
+      const url = config.url.replace(/\/$/, '') + '/_cluster/allocation/explain';
+      const response = await fetch(url, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(body)
+      });
+      if (!response.ok) {
+        return {
+          success: false,
+          error: await response.text()
+        };
+      }
+      const data = await response.json();
+      return { success: true, data };
+    } catch (error) {
+      return {
+        success: false,
+        error: `Ошибка подключения: ${error instanceof Error ? error.message : String(error)}`
       };
     }
   }

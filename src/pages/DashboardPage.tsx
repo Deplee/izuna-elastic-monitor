@@ -5,6 +5,9 @@ import NodesTable from '@/components/NodesTable';
 import IndicesTable from '@/components/IndicesTable';
 import elasticService, { ClusterHealth, Node, IndexInfo } from '@/services/elasticService';
 import { useToast } from '@/components/ui/use-toast';
+import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '@/components/ui/accordion';
+import { RefreshCw } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 // Функция для преобразования строки размера в байты
 function parseSizeToBytes(sizeStr: string): number {
@@ -61,6 +64,60 @@ const DashboardPage: React.FC = () => {
   const [totalDocs, setTotalDocs] = useState<number | null>(null);
   const [totalDocsLoading, setTotalDocsLoading] = useState(true);
   const [totalDocsError, setTotalDocsError] = useState<string | null>(null);
+
+  const [threadPools, setThreadPools] = useState<any[]>([]);
+  const [threadPoolsLoading, setThreadPoolsLoading] = useState(true);
+  const [threadPoolsError, setThreadPoolsError] = useState<string | null>(null);
+  const [threadSort, setThreadSort] = useState<{[nodeId: string]: {field: string, order: 'asc' | 'desc'}} >({});
+
+  const [hotThreads, setHotThreads] = useState<any>(null);
+  const [hotThreadsLoading, setHotThreadsLoading] = useState(false);
+  const [hotThreadsError, setHotThreadsError] = useState<string | null>(null);
+
+  const [indicesIndexingStats, setIndicesIndexingStats] = useState<any>(null);
+  const [indicesIndexingStatsLoading, setIndicesIndexingStatsLoading] = useState(false);
+  const [indicesIndexingStatsError, setIndicesIndexingStatsError] = useState<string | null>(null);
+
+  const [nodesIndexingStats, setNodesIndexingStats] = useState<any>(null);
+  const [nodesIndexingStatsLoading, setNodesIndexingStatsLoading] = useState(false);
+  const [nodesIndexingStatsError, setNodesIndexingStatsError] = useState<string | null>(null);
+
+  const [selectedIndex, setSelectedIndex] = useState('');
+  const [singleIndexStats, setSingleIndexStats] = useState<any>(null);
+  const [singleIndexStatsLoading, setSingleIndexStatsLoading] = useState(false);
+  const [singleIndexStatsError, setSingleIndexStatsError] = useState<string | null>(null);
+
+  const [pendingTasks, setPendingTasks] = useState<any[]>([]);
+  const [pendingTasksLoading, setPendingTasksLoading] = useState(false);
+  const [pendingTasksError, setPendingTasksError] = useState<string | null>(null);
+
+  // --- Active Tasks ---
+  const [activeTasks, setActiveTasks] = useState<any>(null);
+  const [activeTasksLoading, setActiveTasksLoading] = useState(false);
+  const [activeTasksError, setActiveTasksError] = useState<string | null>(null);
+  const [activeTasksSort, setActiveTasksSort] = useState<{field: string, order: 'asc' | 'desc'}>({field: 'node', order: 'asc'});
+
+  // --- Allocation Explain ---
+  const [allocation, setAllocation] = useState<any>(null);
+  const [allocationLoading, setAllocationLoading] = useState(false);
+  const [allocationError, setAllocationError] = useState<string | null>(null);
+  const [allocIndex, setAllocIndex] = useState('');
+  const [allocShard, setAllocShard] = useState('');
+  const [allocPrimary, setAllocPrimary] = useState(false);
+
+  // --- Snapshots ---
+  const [snapshots, setSnapshots] = useState<any>(null);
+  const [snapshotsLoading, setSnapshotsLoading] = useState(false);
+  const [snapshotsError, setSnapshotsError] = useState<string | null>(null);
+  const [snapshotSearch, setSnapshotSearch] = useState('');
+
+  // --- Snapshot Status ---
+  const [snapshotRepo, setSnapshotRepo] = useState('');
+  const [snapshotStatus, setSnapshotStatus] = useState<any>(null);
+  const [snapshotStatusLoading, setSnapshotStatusLoading] = useState(false);
+  const [snapshotStatusError, setSnapshotStatusError] = useState<string | null>(null);
+
+  const [openThreadPools, setOpenThreadPools] = useState<{[nodeId: string]: boolean}>({});
 
   const { toast } = useToast();
 
@@ -186,6 +243,188 @@ const DashboardPage: React.FC = () => {
     }
   };
 
+  const fetchThreadPools = async () => {
+    setThreadPoolsLoading(true);
+    setThreadPoolsError(null);
+    try {
+      const response = await elasticService.getThreadPools();
+      if (response.success && response.data) {
+        setThreadPools(response.data);
+      } else {
+        setThreadPoolsError(response.error || 'Не удалось получить thread pool');
+      }
+    } catch (error) {
+      setThreadPoolsError(`Ошибка: ${error instanceof Error ? error.message : 'Неизвестная ошибка'}`);
+    } finally {
+      setThreadPoolsLoading(false);
+    }
+  };
+
+  const fetchHotThreads = async () => {
+    setHotThreadsLoading(true);
+    setHotThreadsError(null);
+    try {
+      const response = await elasticService.getHotThreads();
+      if (response.success && response.data) {
+        setHotThreads(response.data);
+      } else {
+        setHotThreadsError(response.error || 'Не удалось получить hot threads');
+      }
+    } catch (error) {
+      setHotThreadsError(`Ошибка: ${error instanceof Error ? error.message : 'Неизвестная ошибка'}`);
+    } finally {
+      setHotThreadsLoading(false);
+    }
+  };
+
+  const fetchIndicesIndexingStats = async () => {
+    setIndicesIndexingStatsLoading(true);
+    setIndicesIndexingStatsError(null);
+    try {
+      const response = await elasticService.getAllIndicesIndexingStats();
+      if (response.success && response.data) {
+        setIndicesIndexingStats(response.data);
+      } else {
+        setIndicesIndexingStatsError(response.error || 'Не удалось получить статистику индексации по индексам');
+      }
+    } catch (error) {
+      setIndicesIndexingStatsError(`Ошибка: ${error instanceof Error ? error.message : 'Неизвестная ошибка'}`);
+    } finally {
+      setIndicesIndexingStatsLoading(false);
+    }
+  };
+
+  const fetchNodesIndexingStats = async () => {
+    setNodesIndexingStatsLoading(true);
+    setNodesIndexingStatsError(null);
+    try {
+      const response = await elasticService.getNodesIndexingStats();
+      if (response.success && response.data) {
+        setNodesIndexingStats(response.data);
+      } else {
+        setNodesIndexingStatsError(response.error || 'Не удалось получить статистику индексации по узлам');
+      }
+    } catch (error) {
+      setNodesIndexingStatsError(`Ошибка: ${error instanceof Error ? error.message : 'Неизвестная ошибка'}`);
+    } finally {
+      setNodesIndexingStatsLoading(false);
+    }
+  };
+
+  const fetchSingleIndexStats = async () => {
+    if (!selectedIndex) return;
+    setSingleIndexStatsLoading(true);
+    setSingleIndexStatsError(null);
+    setSingleIndexStats(null);
+    try {
+      const response = await elasticService.getIndexIndexingStats(selectedIndex);
+      if (response.success && response.data) {
+        setSingleIndexStats(response.data);
+      } else {
+        setSingleIndexStatsError(response.error || 'Не удалось получить статистику индексации по индексу');
+      }
+    } catch (error) {
+      setSingleIndexStatsError(`Ошибка: ${error instanceof Error ? error.message : 'Неизвестная ошибка'}`);
+    } finally {
+      setSingleIndexStatsLoading(false);
+    }
+  };
+
+  const fetchPendingTasks = async () => {
+    setPendingTasksLoading(true);
+    setPendingTasksError(null);
+    try {
+      const response = await elasticService.getPendingTasks();
+      if (response.success && response.data && Array.isArray(response.data.tasks)) {
+        setPendingTasks(response.data.tasks);
+      } else if (response.success && response.data && Array.isArray(response.data)) {
+        setPendingTasks(response.data);
+      } else if (response.success && response.data && response.data.tasks) {
+        setPendingTasks(response.data.tasks);
+      } else {
+        setPendingTasks([]);
+      }
+    } catch (error) {
+      setPendingTasksError(`Ошибка: ${error instanceof Error ? error.message : 'Неизвестная ошибка'}`);
+    } finally {
+      setPendingTasksLoading(false);
+    }
+  };
+
+  const fetchActiveTasks = async () => {
+    setActiveTasksLoading(true);
+    setActiveTasksError(null);
+    try {
+      const response = await elasticService.getActiveTasks();
+      if (response.success && response.data) {
+        setActiveTasks(response.data);
+      } else {
+        setActiveTasksError(response.error || 'Не удалось получить активные задачи');
+      }
+    } catch (error) {
+      setActiveTasksError(`Ошибка: ${error instanceof Error ? error.message : 'Неизвестная ошибка'}`);
+    } finally {
+      setActiveTasksLoading(false);
+    }
+  };
+
+  const fetchAllocation = async (body?: any) => {
+    setAllocationLoading(true);
+    setAllocationError(null);
+    try {
+      let response;
+      if (body) {
+        response = await elasticService.getAllocationExplainWithBody(body);
+      } else {
+        response = await elasticService.getAllocationExplain();
+      }
+      if (response.success && response.data) {
+        setAllocation(response.data);
+      } else {
+        setAllocationError(response.error || 'Не удалось получить allocation explain');
+      }
+    } catch (error) {
+      setAllocationError(`Ошибка: ${error instanceof Error ? error.message : 'Неизвестная ошибка'}`);
+    } finally {
+      setAllocationLoading(false);
+    }
+  };
+
+  const fetchSnapshots = async () => {
+    setSnapshotsLoading(true);
+    setSnapshotsError(null);
+    try {
+      const response = await elasticService.getSnapshots();
+      if (response.success && response.data) {
+        setSnapshots(response.data);
+      } else {
+        setSnapshotsError(response.error || 'Не удалось получить список снапшотов');
+      }
+    } catch (error) {
+      setSnapshotsError(`Ошибка: ${error instanceof Error ? error.message : 'Неизвестная ошибка'}`);
+    } finally {
+      setSnapshotsLoading(false);
+    }
+  };
+
+  const fetchSnapshotStatus = async () => {
+    if (!snapshotRepo) return;
+    setSnapshotStatusLoading(true);
+    setSnapshotStatusError(null);
+    try {
+      const response = await elasticService.getSnapshotStatus(snapshotRepo);
+      if (response.success && response.data) {
+        setSnapshotStatus(response.data);
+      } else {
+        setSnapshotStatusError(response.error || 'Не удалось получить статус восстановления');
+      }
+    } catch (error) {
+      setSnapshotStatusError(`Ошибка: ${error instanceof Error ? error.message : 'Неизвестная ошибка'}`);
+    } finally {
+      setSnapshotStatusLoading(false);
+    }
+  };
+
   const fetchAllData = () => {
     fetchClusterHealth();
     fetchNodes();
@@ -194,6 +433,15 @@ const DashboardPage: React.FC = () => {
     fetchInitializingShards();
     fetchUnassignedShards();
     fetchTotalDocs();
+    fetchThreadPools();
+    fetchHotThreads();
+    fetchIndicesIndexingStats();
+    fetchNodesIndexingStats();
+    fetchPendingTasks();
+    fetchActiveTasks();
+    fetchAllocation();
+    fetchSnapshots();
+    fetchSnapshotStatus();
   };
 
   useEffect(() => {
@@ -274,116 +522,650 @@ const DashboardPage: React.FC = () => {
           onRefresh={fetchNodes} 
         />
 
-        {relocatingLoading ? (
-          <div className="metric-card mt-4">Загрузка перемещаемых шардов...</div>
-        ) : relocatingError ? (
-          <div className="metric-card mt-4 text-red-500">{relocatingError}</div>
-        ) : (
-          <div className="metric-card mt-4">
-            <h3 className="font-medium mb-2">Перемещаемые шарды</h3>
-            <div className="overflow-x-auto">
-              {relocatingShards.length > 0 ? (
-                <table className="min-w-full text-sm">
-                  <thead>
-                    <tr>
-                      <th className="px-2 py-1 text-left">Индекс</th>
-                      <th className="px-2 py-1 text-left">Шард</th>
-                      <th className="px-2 py-1 text-left">Откуда</th>
-                      <th className="px-2 py-1 text-left">Куда</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {relocatingShards.map((shard, idx) => (
-                      <tr key={idx}>
-                        <td className="px-2 py-1">{shard.index}</td>
-                        <td className="px-2 py-1">{shard.shard}</td>
-                        <td className="px-2 py-1">{shard.fromNode}</td>
-                        <td className="px-2 py-1">{shard.toNode}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              ) : (
-                <div className="text-muted-foreground px-2 py-1">Нет перемещаемых шардов</div>
-              )}
-            </div>
-          </div>
-        )}
+        <Accordion type="multiple" className="bg-transparent mt-4">
+          <AccordionItem value="indices">
+            <AccordionTrigger>Индексы</AccordionTrigger>
+            <AccordionContent>
+              <IndicesTable 
+                indices={indices || []}
+                isLoading={indicesLoading}
+                error={indicesError}
+                onRefresh={fetchIndices}
+              />
+            </AccordionContent>
+          </AccordionItem>
+        </Accordion>
 
-        {initializingLoading ? (
-          <div className="metric-card mt-4">Загрузка инициализируемых шардов...</div>
-        ) : initializingError ? (
-          <div className="metric-card mt-4 text-red-500">{initializingError}</div>
-        ) : (
-          <div className="metric-card mt-4">
-            <h3 className="font-medium mb-2">Инициализируемые шарды</h3>
-            <div className="overflow-x-auto">
-              {initializingShards.length > 0 ? (
-                <table className="min-w-full text-sm">
-                  <thead>
-                    <tr>
-                      <th className="px-2 py-1 text-left">Индекс</th>
-                      <th className="px-2 py-1 text-left">Шард</th>
-                      <th className="px-2 py-1 text-left">Нода</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {initializingShards.map((shard, idx) => (
-                      <tr key={idx}>
-                        <td className="px-2 py-1">{shard.index}</td>
-                        <td className="px-2 py-1">{shard.shard}</td>
-                        <td className="px-2 py-1">{shard.node}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              ) : (
-                <div className="text-muted-foreground px-2 py-1">Нет инициализируемых шардов</div>
-              )}
-            </div>
+        <div className="metric-card mt-4">
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="font-medium">Thread Pool</h3>
+            <Button variant="outline" onClick={fetchThreadPools} disabled={threadPoolsLoading}>
+              <RefreshCw className="mr-2 h-4 w-4" />
+              Обновить
+            </Button>
           </div>
-        )}
+          {threadPoolsLoading ? (
+            <div>Загрузка thread pool...</div>
+          ) : threadPoolsError ? (
+            <div className="text-red-500">{threadPoolsError}</div>
+          ) : (
+            <Accordion type="multiple" className="bg-transparent">
+              {threadPools.map((node: any) => {
+                const sort = threadSort[node.nodeId] || {field: 'name', order: 'asc'};
+                const sortedPools = [...node.pools].sort((a, b) => {
+                  let aValue = a[sort.field], bValue = b[sort.field];
+                  if (typeof aValue === 'string') aValue = aValue.toLowerCase();
+                  if (typeof bValue === 'string') bValue = bValue.toLowerCase();
+                  if (aValue === bValue) return 0;
+                  if (sort.order === 'asc') return aValue > bValue ? 1 : -1;
+                  return aValue < bValue ? 1 : -1;
+                });
+                const handleSort = (field: string) => {
+                  setThreadSort(prev => ({
+                    ...prev,
+                    [node.nodeId]: {
+                      field,
+                      order: sort.field === field ? (sort.order === 'asc' ? 'desc' : 'asc') : 'desc',
+                    }
+                  }));
+                };
+                const open = openThreadPools[node.nodeId] || false;
+                const toggle = () => setOpenThreadPools(prev => ({
+                  ...prev,
+                  [node.nodeId]: !prev[node.nodeId]
+                }));
+                return (
+                  <div key={node.nodeId} className="mb-2">
+                    <button
+                      className="text-left font-semibold mb-1 focus:outline-none hover:underline"
+                      onClick={toggle}
+                    >
+                      {open ? '▼' : '►'} {node.nodeName}
+                    </button>
+                    {open && (
+                      <div className="bg-muted p-2 rounded overflow-x-auto">
+                        <table className="min-w-full text-xs">
+                          <thead>
+                            <tr>
+                              <th className="px-2 py-1 text-left cursor-pointer" onClick={() => handleSort('name')}>Pool {sort.field === 'name' ? (sort.order === 'asc' ? '▲' : '▼') : ''}</th>
+                              <th className="px-2 py-1 text-left cursor-pointer" onClick={() => handleSort('active')}>Active {sort.field === 'active' ? (sort.order === 'asc' ? '▲' : '▼') : ''}</th>
+                              <th className="px-2 py-1 text-left cursor-pointer" onClick={() => handleSort('queue')}>Queue {sort.field === 'queue' ? (sort.order === 'asc' ? '▲' : '▼') : ''}</th>
+                              <th className="px-2 py-1 text-left cursor-pointer" onClick={() => handleSort('rejected')}>Rejected {sort.field === 'rejected' ? (sort.order === 'asc' ? '▲' : '▼') : ''}</th>
+                              <th className="px-2 py-1 text-left cursor-pointer" onClick={() => handleSort('completed')}>Completed {sort.field === 'completed' ? (sort.order === 'asc' ? '▲' : '▼') : ''}</th>
+                              <th className="px-2 py-1 text-left cursor-pointer" onClick={() => handleSort('threads')}>Threads {sort.field === 'threads' ? (sort.order === 'asc' ? '▲' : '▼') : ''}</th>
+                              <th className="px-2 py-1 text-left cursor-pointer" onClick={() => handleSort('largest')}>Largest {sort.field === 'largest' ? (sort.order === 'asc' ? '▲' : '▼') : ''}</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {sortedPools.map((pool, idx) => (
+                              <tr key={pool.name + idx}>
+                                <td className="px-2 py-1 font-medium">{pool.name}</td>
+                                <td className="px-2 py-1">{pool.active}</td>
+                                <td className="px-2 py-1">{pool.queue}</td>
+                                <td className="px-2 py-1">{pool.rejected}</td>
+                                <td className="px-2 py-1">{pool.completed}</td>
+                                <td className="px-2 py-1">{pool.threads}</td>
+                                <td className="px-2 py-1">{pool.largest}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </Accordion>
+          )}
+        </div>
 
-        {unassignedLoading ? (
-          <div className="metric-card mt-4">Загрузка неназначенных шардов...</div>
-        ) : unassignedError ? (
-          <div className="metric-card mt-4 text-red-500">{unassignedError}</div>
-        ) : (
-          <div className="metric-card mt-4">
-            <h3 className="font-medium mb-2">Неназначенные шарды</h3>
-            <div className="overflow-x-auto">
-              {unassignedShards.length > 0 ? (
-                <table className="min-w-full text-sm">
-                  <thead>
-                    <tr>
-                      <th className="px-2 py-1 text-left">Индекс</th>
-                      <th className="px-2 py-1 text-left">Шард</th>
-                      <th className="px-2 py-1 text-left">Нода</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {unassignedShards.map((shard, idx) => (
-                      <tr key={idx}>
-                        <td className="px-2 py-1">{shard.index}</td>
-                        <td className="px-2 py-1">{shard.shard}</td>
-                        <td className="px-2 py-1">{shard.node}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+        <Accordion type="multiple" className="bg-transparent mt-4">
+          <AccordionItem value="hot-threads">
+            <AccordionTrigger>Hot Threads</AccordionTrigger>
+            <AccordionContent>
+              <div className="flex justify-end mb-2">
+                <Button variant="outline" onClick={fetchHotThreads} disabled={hotThreadsLoading}>
+                  <RefreshCw className="mr-2 h-4 w-4" />
+                  Обновить
+                </Button>
+              </div>
+              {hotThreadsLoading ? (
+                <div>Загрузка hot threads...</div>
+              ) : hotThreadsError ? (
+                <div className="text-red-500">{hotThreadsError}</div>
+              ) : hotThreads ? (
+                <pre className="text-xs bg-muted p-2 rounded overflow-x-auto max-h-96 whitespace-pre-wrap">{hotThreads}</pre>
               ) : (
-                <div className="text-muted-foreground px-2 py-1">Нет неназначенных шардов</div>
+                <div className="text-muted-foreground">Нет данных о hot threads</div>
               )}
-            </div>
-          </div>
-        )}
+            </AccordionContent>
+          </AccordionItem>
 
-        <IndicesTable 
-          indices={indices} 
-          isLoading={indicesLoading} 
-          error={indicesError}
-          onRefresh={fetchIndices} 
-        />
+          <AccordionItem value="pending-tasks">
+            <AccordionTrigger>Очередь задач</AccordionTrigger>
+            <AccordionContent>
+              <div className="flex justify-end mb-2">
+                <Button variant="outline" onClick={fetchPendingTasks} disabled={pendingTasksLoading}>
+                  <RefreshCw className="mr-2 h-4 w-4" />
+                  Обновить
+                </Button>
+              </div>
+              {pendingTasksLoading ? (
+                <div>Загрузка очереди задач...</div>
+              ) : pendingTasksError ? (
+                <div className="text-red-500">{pendingTasksError}</div>
+              ) : pendingTasks && pendingTasks.length > 0 ? (
+                <div className="overflow-x-auto">
+                  <table className="min-w-full text-xs">
+                    <thead>
+                      <tr>
+                        <th className="px-2 py-1 text-left">#</th>
+                        <th className="px-2 py-1 text-left">Время в очереди</th>
+                        <th className="px-2 py-1 text-left">Приоритет</th>
+                        <th className="px-2 py-1 text-left">Источник</th>
+                        <th className="px-2 py-1 text-left">Описание</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {pendingTasks.map((task, idx) => (
+                        <tr key={idx}>
+                          <td className="px-2 py-1">{task.insert_order ?? idx + 1}</td>
+                          <td className="px-2 py-1">{task.time_in_queue || (task.time_in_queue_millis ? (task.time_in_queue_millis / 1000).toFixed(2) + ' сек' : '-')}</td>
+                          <td className="px-2 py-1">{task.priority}</td>
+                          <td className="px-2 py-1">{task.source}</td>
+                          <td className="px-2 py-1">{task.task || task.description || '-'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="text-muted-foreground">Нет задач в очереди</div>
+              )}
+            </AccordionContent>
+          </AccordionItem>
+
+          <AccordionItem value="indexing-stats-indices">
+            <AccordionTrigger>Время индексации по индексам</AccordionTrigger>
+            <AccordionContent>
+              <div className="flex items-center gap-2 mb-2">
+                <input
+                  type="text"
+                  className="border rounded px-2 py-1 text-xs bg-background text-foreground"
+                  placeholder="Введите имя индекса"
+                  value={selectedIndex}
+                  onChange={e => setSelectedIndex(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') fetchSingleIndexStats(); }}
+                  style={{ minWidth: 200 }}
+                />
+                <Button variant="outline" onClick={fetchSingleIndexStats} disabled={!selectedIndex || singleIndexStatsLoading}>
+                  <RefreshCw className="mr-2 h-4 w-4" />
+                  Обновить
+                </Button>
+              </div>
+              {singleIndexStatsLoading ? (
+                <div>Загрузка...</div>
+              ) : singleIndexStatsError ? (
+                <div className="text-red-500">{singleIndexStatsError}</div>
+              ) : singleIndexStats && singleIndexStats.indices && singleIndexStats.indices[selectedIndex] ? (
+                (() => {
+                  const stats = singleIndexStats.indices[selectedIndex];
+                  const total = stats.total?.indexing || {};
+                  return (
+                    <div className="overflow-x-auto">
+                      <table className="min-w-full text-xs">
+                        <thead>
+                          <tr>
+                            <th className="px-2 py-1 text-left">Индекс</th>
+                            <th className="px-2 py-1 text-left">index_total</th>
+                            <th className="px-2 py-1 text-left">index_time_in_millis</th>
+                            <th className="px-2 py-1 text-left">index_failed</th>
+                            <th className="px-2 py-1 text-left">delete_total</th>
+                            <th className="px-2 py-1 text-left">delete_time_in_millis</th>
+                            <th className="px-2 py-1 text-left">noop_update_total</th>
+                            <th className="px-2 py-1 text-left">is_throttled</th>
+                            <th className="px-2 py-1 text-left">throttle_time_in_millis</th>
+                            <th className="px-2 py-1 text-left">write_load</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr>
+                            <td className="px-2 py-1 font-medium">{selectedIndex}</td>
+                            <td className="px-2 py-1">{total.index_total ?? '-'}</td>
+                            <td className="px-2 py-1">{total.index_time_in_millis !== undefined ? (total.index_time_in_millis / 1000).toLocaleString(undefined, {maximumFractionDigits: 2}) + ' сек' : '-'}</td>
+                            <td className="px-2 py-1">{total.index_failed ?? '-'}</td>
+                            <td className="px-2 py-1">{total.delete_total ?? '-'}</td>
+                            <td className="px-2 py-1">{total.delete_time_in_millis !== undefined ? (total.delete_time_in_millis / 1000).toLocaleString(undefined, {maximumFractionDigits: 2}) + ' сек' : '-'}</td>
+                            <td className="px-2 py-1">{total.noop_update_total ?? '-'}</td>
+                            <td className="px-2 py-1">{total.is_throttled !== undefined ? (total.is_throttled ? 'Да' : 'Нет') : '-'}</td>
+                            <td className="px-2 py-1">{total.throttle_time_in_millis !== undefined ? (total.throttle_time_in_millis / 1000).toLocaleString(undefined, {maximumFractionDigits: 2}) + ' сек' : '-'}</td>
+                            <td className="px-2 py-1">{total.write_load ?? '-'}</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  );
+                })()
+              ) : (
+                <div className="text-muted-foreground">Нет данных</div>
+              )}
+            </AccordionContent>
+          </AccordionItem>
+
+          <AccordionItem value="indexing-stats-nodes">
+            <AccordionTrigger>Время индексации по узлам</AccordionTrigger>
+            <AccordionContent>
+              <div className="flex justify-end mb-2">
+                <Button variant="outline" onClick={fetchNodesIndexingStats} disabled={nodesIndexingStatsLoading}>
+                  <RefreshCw className="mr-2 h-4 w-4" />
+                  Обновить
+                </Button>
+              </div>
+              {nodesIndexingStatsLoading ? (
+                <div>Загрузка...</div>
+              ) : nodesIndexingStatsError ? (
+                <div className="text-red-500">{nodesIndexingStatsError}</div>
+              ) : nodesIndexingStats && nodesIndexingStats.nodes ? (
+                <div className="overflow-x-auto">
+                  <table className="min-w-full text-xs">
+                    <thead>
+                      <tr>
+                        <th className="px-2 py-1 text-left">Узел</th>
+                        <th className="px-2 py-1 text-left">Время индексации</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {Object.entries(nodesIndexingStats.nodes).map(([nodeId, node]: any) => (
+                        <tr key={nodeId}>
+                          <td className="px-2 py-1 font-medium">{node.name || nodeId}</td>
+                          <td className="px-2 py-1">{node.indices?.indexing?.index_time_in_millis ? (node.indices.indexing.index_time_in_millis / 1000).toLocaleString(undefined, {maximumFractionDigits: 2}) + ' сек' : '-'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="text-muted-foreground">Нет данных</div>
+              )}
+            </AccordionContent>
+          </AccordionItem>
+
+          <AccordionItem value="relocating">
+            <AccordionTrigger>Перемещаемые шарды</AccordionTrigger>
+            <AccordionContent>
+              <div className="flex justify-end mb-2">
+                <Button variant="outline" onClick={fetchRelocatingShards} disabled={relocatingLoading}>
+                  <RefreshCw className="mr-2 h-4 w-4" />
+                  Обновить
+                </Button>
+              </div>
+              {relocatingLoading ? (
+                <div className="metric-card">Загрузка перемещаемых шардов...</div>
+              ) : relocatingError ? (
+                <div className="metric-card text-red-500">{relocatingError}</div>
+              ) : (
+                <div className="metric-card">
+                  <div className="overflow-x-auto">
+                    {relocatingShards.length > 0 ? (
+                      <table className="min-w-full text-sm">
+                        <thead>
+                          <tr>
+                            <th className="px-2 py-1 text-left">Индекс</th>
+                            <th className="px-2 py-1 text-left">Шард</th>
+                            <th className="px-2 py-1 text-left">Откуда</th>
+                            <th className="px-2 py-1 text-left">Куда</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {relocatingShards.map((shard, idx) => (
+                            <tr key={idx}>
+                              <td className="px-2 py-1">{shard.index}</td>
+                              <td className="px-2 py-1">{shard.shard}</td>
+                              <td className="px-2 py-1">{shard.fromNode}</td>
+                              <td className="px-2 py-1">{shard.toNode}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    ) : (
+                      <div className="text-muted-foreground px-2 py-1">Нет перемещаемых шардов</div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </AccordionContent>
+          </AccordionItem>
+
+          <AccordionItem value="initializing">
+            <AccordionTrigger>Инициализируемые шарды</AccordionTrigger>
+            <AccordionContent>
+              <div className="flex justify-end mb-2">
+                <Button variant="outline" onClick={fetchInitializingShards} disabled={initializingLoading}>
+                  <RefreshCw className="mr-2 h-4 w-4" />
+                  Обновить
+                </Button>
+              </div>
+              {initializingLoading ? (
+                <div className="metric-card">Загрузка инициализируемых шардов...</div>
+              ) : initializingError ? (
+                <div className="metric-card text-red-500">{initializingError}</div>
+              ) : (
+                <div className="metric-card">
+                  <div className="overflow-x-auto">
+                    {initializingShards.length > 0 ? (
+                      <table className="min-w-full text-sm">
+                        <thead>
+                          <tr>
+                            <th className="px-2 py-1 text-left">Индекс</th>
+                            <th className="px-2 py-1 text-left">Шард</th>
+                            <th className="px-2 py-1 text-left">Нода</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {initializingShards.map((shard, idx) => (
+                            <tr key={idx}>
+                              <td className="px-2 py-1">{shard.index}</td>
+                              <td className="px-2 py-1">{shard.shard}</td>
+                              <td className="px-2 py-1">{shard.node}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    ) : (
+                      <div className="text-muted-foreground px-2 py-1">Нет инициализируемых шардов</div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </AccordionContent>
+          </AccordionItem>
+
+          <AccordionItem value="unassigned">
+            <AccordionTrigger>Неназначенные шарды</AccordionTrigger>
+            <AccordionContent>
+              <div className="flex justify-end mb-2">
+                <Button variant="outline" onClick={fetchUnassignedShards} disabled={unassignedLoading}>
+                  <RefreshCw className="mr-2 h-4 w-4" />
+                  Обновить
+                </Button>
+              </div>
+              {unassignedLoading ? (
+                <div className="metric-card">Загрузка неназначенных шардов...</div>
+              ) : unassignedError ? (
+                <div className="metric-card text-red-500">Ошибка загрузки неназначенных шардов</div>
+              ) : (
+                <div className="metric-card">
+                  {unassignedShards.length > 0 ? (
+                    <div className="space-y-2">
+                      {unassignedShards.map((shard, index) => (
+                        <div key={index} className="text-sm">
+                          <span className="font-medium">{shard.index}</span>
+                          <span className="text-muted-foreground"> (шард {shard.shard})</span>
+                          {shard.reason && (
+                            <span className="text-muted-foreground"> - {shard.reason}</span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-muted-foreground">Нет неназначенных шардов</div>
+                  )}
+                </div>
+              )}
+            </AccordionContent>
+          </AccordionItem>
+
+          <AccordionItem value="active-tasks">
+            <AccordionTrigger>Активные задачи</AccordionTrigger>
+            <AccordionContent>
+              <div className="flex justify-end mb-2">
+                <Button variant="outline" onClick={fetchActiveTasks} disabled={activeTasksLoading}>
+                  <RefreshCw className="mr-2 h-4 w-4" />
+                  Обновить
+                </Button>
+              </div>
+              {activeTasksLoading ? (
+                <div>Загрузка активных задач...</div>
+              ) : activeTasksError ? (
+                <div className="text-red-500">{activeTasksError}</div>
+              ) : activeTasks && activeTasks.nodes ? (
+                (() => {
+                  // Собираем все задачи в массив
+                  let tasks: any[] = [];
+                  Object.entries(activeTasks.nodes).forEach(([nodeId, node]: any) => {
+                    Object.entries(node.tasks || {}).forEach(([taskId, task]: any) => {
+                      tasks.push({
+                        node: node.name || nodeId,
+                        taskId,
+                        action: task.action,
+                        description: task.description || '-',
+                        runningTime: task.running_time_in_nanos ? (task.running_time_in_nanos / 1e9) : 0,
+                        status: task.status ? JSON.stringify(task.status) : '-',
+                      });
+                    });
+                  });
+                  // Сортировка
+                  const {field, order} = activeTasksSort;
+                  tasks = tasks.sort((a, b) => {
+                    let aValue = a[field], bValue = b[field];
+                    if (typeof aValue === 'string') aValue = aValue.toLowerCase();
+                    if (typeof bValue === 'string') bValue = bValue.toLowerCase();
+                    if (aValue === bValue) return 0;
+                    if (order === 'asc') return aValue > bValue ? 1 : -1;
+                    return aValue < bValue ? 1 : -1;
+                  });
+                  const handleSort = (field: string) => {
+                    setActiveTasksSort(prev => ({
+                      field,
+                      order: prev.field === field ? (prev.order === 'asc' ? 'desc' : 'asc') : 'desc',
+                    }));
+                  };
+                  return (
+                    <div className="bg-muted p-2 rounded overflow-x-auto">
+                      <table className="min-w-full text-xs">
+                        <thead>
+                          <tr>
+                            <th className="px-2 py-1 text-left cursor-pointer" onClick={() => handleSort('node')}>Узел {activeTasksSort.field === 'node' ? (activeTasksSort.order === 'asc' ? '▲' : '▼') : ''}</th>
+                            <th className="px-2 py-1 text-left cursor-pointer" onClick={() => handleSort('taskId')}>ID задачи {activeTasksSort.field === 'taskId' ? (activeTasksSort.order === 'asc' ? '▲' : '▼') : ''}</th>
+                            <th className="px-2 py-1 text-left cursor-pointer" onClick={() => handleSort('action')}>Тип {activeTasksSort.field === 'action' ? (activeTasksSort.order === 'asc' ? '▲' : '▼') : ''}</th>
+                            <th className="px-2 py-1 text-left cursor-pointer" onClick={() => handleSort('description')}>Описание {activeTasksSort.field === 'description' ? (activeTasksSort.order === 'asc' ? '▲' : '▼') : ''}</th>
+                            <th className="px-2 py-1 text-left cursor-pointer" onClick={() => handleSort('runningTime')}>Время выполнения {activeTasksSort.field === 'runningTime' ? (activeTasksSort.order === 'asc' ? '▲' : '▼') : ''}</th>
+                            <th className="px-2 py-1 text-left cursor-pointer" onClick={() => handleSort('status')}>Статус {activeTasksSort.field === 'status' ? (activeTasksSort.order === 'asc' ? '▲' : '▼') : ''}</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {tasks.map((task, idx) => (
+                            <tr key={idx}>
+                              <td className="px-2 py-1">{task.node}</td>
+                              <td className="px-2 py-1">{task.taskId}</td>
+                              <td className="px-2 py-1">{task.action}</td>
+                              <td className="px-2 py-1">{task.description}</td>
+                              <td className="px-2 py-1">{task.runningTime.toFixed(2)} сек</td>
+                              <td className="px-2 py-1" style={{maxWidth: 300, whiteSpace: 'pre-wrap', wordBreak: 'break-all'}}>
+                                {task.status && task.status !== '-' ? (
+                                  <pre className="whitespace-pre-wrap max-w-xs overflow-x-auto">{task.status}</pre>
+                                ) : '-'}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  );
+                })()
+              ) : (
+                <div className="text-muted-foreground">Нет активных задач</div>
+              )}
+            </AccordionContent>
+          </AccordionItem>
+
+          <AccordionItem value="allocation-explain">
+            <AccordionTrigger>Allocation Explain</AccordionTrigger>
+            <AccordionContent>
+              <div className="flex flex-col gap-2 mb-2 md:flex-row md:items-end md:gap-4">
+                <Button variant="outline" onClick={() => fetchAllocation()} disabled={allocationLoading}>
+                  Случайный шард
+                </Button>
+                <input
+                  type="text"
+                  className="border rounded px-2 py-1 text-xs bg-background text-foreground"
+                  placeholder="Индекс"
+                  value={allocIndex}
+                  onChange={e => setAllocIndex(e.target.value)}
+                  style={{ minWidth: 120 }}
+                />
+                <input
+                  type="number"
+                  className="border rounded px-2 py-1 text-xs bg-background text-foreground"
+                  placeholder="Шард"
+                  value={allocShard}
+                  onChange={e => setAllocShard(e.target.value)}
+                  style={{ minWidth: 80 }}
+                />
+                <label className="flex items-center gap-1 text-xs" title="Primary — основной шард, если не отмечено — реплика">
+                  <input
+                    type="checkbox"
+                    checked={allocPrimary}
+                    onChange={e => setAllocPrimary(e.target.checked)}
+                  />
+                  primary
+                </label>
+                <Button
+                  variant="outline"
+                  onClick={() => fetchAllocation({ index: allocIndex, shard: Number(allocShard), primary: allocPrimary })}
+                  disabled={allocationLoading || !allocIndex || allocShard === ''}
+                >
+                  Анализировать конкретный шард
+                </Button>
+              </div>
+              {allocationLoading ? (
+                <div>Загрузка allocation explain...</div>
+              ) : allocationError ? (
+                (() => {
+                  // Try to parse JSON error
+                  let isNoUnassigned = false;
+                  try {
+                    const errObj = JSON.parse(allocationError);
+                    if (
+                      errObj?.error?.reason &&
+                      errObj.error.reason.includes('No shard was specified in the request which means the response should explain a randomly-chosen unassigned shard, but there are no unassigned shards in this cluster')
+                    ) {
+                      isNoUnassigned = true;
+                    }
+                  } catch {}
+                  if (isNoUnassigned) {
+                    return <div className="text-muted-foreground">Нет нераспределенных шардов для анализа</div>;
+                  }
+                  return /no unassigned shards/i.test(allocationError)
+                    ? <div className="text-muted-foreground">Нет нераспределенных шардов для анализа</div>
+                    : <div className="text-red-500">{allocationError}</div>;
+                })()
+              ) : allocation ? (
+                (() => {
+                  const str = typeof allocation === 'string' ? allocation : JSON.stringify(allocation, null, 2);
+                  if (/no unassigned shards/i.test(str)) {
+                    return <div className="text-muted-foreground">Нет нераспределенных шардов для анализа</div>;
+                  }
+                  // Also check for the specific error in JSON
+                  try {
+                    const obj = typeof allocation === 'string' ? JSON.parse(allocation) : allocation;
+                    if (
+                      obj?.error?.reason &&
+                      obj.error.reason.includes('No shard was specified in the request which means the response should explain a randomly-chosen unassigned shard, but there are no unassigned shards in this cluster')
+                    ) {
+                      return <div className="text-muted-foreground">Нет нераспределенных шардов для анализа</div>;
+                    }
+                  } catch {}
+                  return <pre className="text-xs bg-muted p-2 rounded overflow-x-auto max-h-96 whitespace-pre-wrap">{str}</pre>;
+                })()
+              ) : (
+                <div className="text-muted-foreground">Нет данных allocation explain</div>
+              )}
+            </AccordionContent>
+          </AccordionItem>
+
+          <AccordionItem value="snapshots">
+            <AccordionTrigger>Снапшоты</AccordionTrigger>
+            <AccordionContent>
+              <div className="flex items-center gap-2 mb-2">
+                <input
+                  type="text"
+                  className="border rounded px-2 py-1 text-xs bg-background text-foreground"
+                  placeholder="Поиск по имени снапшота"
+                  value={snapshotSearch}
+                  onChange={e => setSnapshotSearch(e.target.value)}
+                  style={{ minWidth: 200 }}
+                />
+                <Button variant="outline" onClick={fetchSnapshots} disabled={snapshotsLoading}>
+                  <RefreshCw className="mr-2 h-4 w-4" />
+                  Обновить
+                </Button>
+              </div>
+              {snapshotsLoading ? (
+                <div>Загрузка снапшотов...</div>
+              ) : snapshotsError ? (
+                <div className="text-red-500">{snapshotsError}</div>
+              ) : snapshots && typeof snapshots === 'string' ? (
+                (() => {
+                  const lines = snapshots.trim().split('\n');
+                  if (lines.length < 2) return <div className="text-muted-foreground">Нет данных о снапшотах</div>;
+                  const headers = lines[0].split(/\s+/);
+                  const rows = lines.slice(1).map(line => line.split(/\s+/));
+                  const filteredRows = rows.filter(row => !snapshotSearch || row[0]?.includes(snapshotSearch));
+                  return (
+                    <div className="bg-muted p-2 rounded overflow-x-auto">
+                      <table className="min-w-full text-xs">
+                        <thead>
+                          <tr>
+                            {headers.map((h, i) => <th key={i} className="px-2 py-1 text-left">{h}</th>)}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {filteredRows.map((row, idx) => (
+                            <tr key={idx}>
+                              {row.map((cell, i) => <td key={i} className="px-2 py-1">{cell}</td>)}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  );
+                })()
+              ) : (
+                <div className="text-muted-foreground">Нет данных о снапшотах</div>
+              )}
+            </AccordionContent>
+          </AccordionItem>
+
+          <AccordionItem value="snapshot-status">
+            <AccordionTrigger>Статус восстановления снапшота</AccordionTrigger>
+            <AccordionContent>
+              <div className="flex items-center gap-2 mb-2">
+                <input
+                  type="text"
+                  className="border rounded px-2 py-1 text-xs bg-background text-foreground"
+                  placeholder="Имя репозитория"
+                  value={snapshotRepo}
+                  onChange={e => setSnapshotRepo(e.target.value)}
+                  style={{ minWidth: 200 }}
+                />
+                <Button variant="outline" onClick={fetchSnapshotStatus} disabled={!snapshotRepo || snapshotStatusLoading}>
+                  <RefreshCw className="mr-2 h-4 w-4" />
+                  Обновить
+                </Button>
+              </div>
+              {snapshotStatusLoading ? (
+                <div>Загрузка статуса восстановления...</div>
+              ) : snapshotStatusError ? (
+                <div className="text-red-500">{snapshotStatusError}</div>
+              ) : snapshotStatus ? (
+                <pre className="text-xs bg-muted p-2 rounded overflow-x-auto max-h-96 whitespace-pre-wrap">{typeof snapshotStatus === 'string' ? snapshotStatus : JSON.stringify(snapshotStatus, null, 2)}</pre>
+              ) : (
+                <div className="text-muted-foreground">Нет данных о статусе восстановления</div>
+              )}
+            </AccordionContent>
+          </AccordionItem>
+        </Accordion>
       </div>
     </div>
   );

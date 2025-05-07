@@ -103,7 +103,11 @@ const NodesTable: React.FC<NodesTableProps> = ({ nodes, isLoading, error, onRefr
                 <TableHead>IP</TableHead>
                 <TableHead>Версия</TableHead>
                 <TableHead>CPU</TableHead>
-                <TableHead>Память</TableHead>
+                <TableHead>Память (JVM Heap)</TableHead>
+                <TableHead>RAM</TableHead>
+                <TableHead>Load Avg (1m)</TableHead>
+                <TableHead>Load Avg (5m)</TableHead>
+                <TableHead>Load Avg (15m)</TableHead>
                 <TableHead>Диск</TableHead>
                 <TableHead>Роли</TableHead>
               </TableRow>
@@ -138,6 +142,32 @@ const NodesTable: React.FC<NodesTableProps> = ({ nodes, isLoading, error, onRefr
                       />
                       <div className="text-xs mt-1 text-right">{node.heapPercent}%</div>
                     </div>
+                  </TableCell>
+                  <TableCell>
+                    {typeof node.ramPercent === 'number' ? (
+                      <div className="w-24">
+                        <Progress
+                          value={node.ramPercent}
+                          className="h-2"
+                          indicatorClassName={getProgressColor(node.ramPercent)}
+                        />
+                        <div className="text-xs mt-1 text-right">{node.ramPercent}% использовано</div>
+                        <div className="text-xs mt-1 text-right text-muted-foreground">
+                          {node.ramUsedStr} / {node.ramTotalStr}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-xs text-muted-foreground">-</div>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    <span title="Load Average 1m">{typeof node.load1m === 'number' ? node.load1m.toFixed(2) : '-'}</span>
+                  </TableCell>
+                  <TableCell>
+                    <span title="Load Average 5m">{typeof node.load5m === 'number' ? node.load5m.toFixed(2) : '-'}</span>
+                  </TableCell>
+                  <TableCell>
+                    <span title="Load Average 15m">{typeof node.load15m === 'number' ? node.load15m.toFixed(2) : '-'}</span>
                   </TableCell>
                   <TableCell>
                     <div className="w-24">

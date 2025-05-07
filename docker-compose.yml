@@ -13,26 +13,6 @@ services:
     networks:
       - elastic-network
 
-  elasticsearch:
-    image: registry.hub.nspd.rosreestr.gov.ru/nspd/docker/elasticsearch:8-15
-    container_name: elasticsearch
-    environment:
-      - discovery.type=single-node
-      - xpack.security.enabled=true
-      - ELASTIC_PASSWORD=changeme
-      - http.cors.enabled=true
-      - http.cors.allow-origin="*"
-      - http.cors.allow-headers=Authorization,Content-Type
-      - http.cors.allow-credentials=true
-      - ES_JAVA_OPTS=-Xms1g -Xmx1g
-    ports:
-      - 9200:9200
-    volumes:
-      - esdata:/usr/share/elasticsearch/data
-    restart: unless-stopped
-
-volumes:
-  esdata:
 
 networks:
   elastic-network:
