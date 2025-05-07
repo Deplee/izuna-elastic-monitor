@@ -58,6 +58,10 @@ const DashboardPage: React.FC = () => {
   const [unassignedLoading, setUnassignedLoading] = useState(true);
   const [unassignedError, setUnassignedError] = useState<string | null>(null);
 
+  const [totalDocs, setTotalDocs] = useState<number | null>(null);
+  const [totalDocsLoading, setTotalDocsLoading] = useState(true);
+  const [totalDocsError, setTotalDocsError] = useState<string | null>(null);
+
   const { toast } = useToast();
 
   const fetchClusterHealth = async () => {
@@ -165,6 +169,23 @@ const DashboardPage: React.FC = () => {
     }
   };
 
+  const fetchTotalDocs = async () => {
+    setTotalDocsLoading(true);
+    setTotalDocsError(null);
+    try {
+      const response = await elasticService.getTotalDocsCount();
+      if (response.success && typeof response.data === 'number') {
+        setTotalDocs(response.data);
+      } else {
+        setTotalDocsError(response.error || 'Не удалось получить общее количество документов');
+      }
+    } catch (error) {
+      setTotalDocsError(`Ошибка: ${error instanceof Error ? error.message : 'Неизвестная ошибка'}`);
+    } finally {
+      setTotalDocsLoading(false);
+    }
+  };
+
   const fetchAllData = () => {
     fetchClusterHealth();
     fetchNodes();
@@ -172,6 +193,7 @@ const DashboardPage: React.FC = () => {
     fetchRelocatingShards();
     fetchInitializingShards();
     fetchUnassignedShards();
+    fetchTotalDocs();
   };
 
   useEffect(() => {
@@ -221,10 +243,12 @@ const DashboardPage: React.FC = () => {
               <div className="metric-card">
                 <h3 className="font-medium mb-2">Всего документов</h3>
                 <p className="text-3xl font-bold">
-                  {indicesLoading ? (
+                  {totalDocsLoading ? (
                     <span className="animate-pulse">...</span>
-                  ) : indices ? (
-                    indices.reduce((sum, index) => sum + index.docsCount, 0).toLocaleString()
+                  ) : totalDocsError ? (
+                    <span className="text-red-500">{totalDocsError}</span>
+                  ) : totalDocs !== null ? (
+                    totalDocs.toLocaleString()
                   ) : 0}
                 </p>
               </div>

@@ -371,6 +371,26 @@ class ElasticService {
     }
   }
 
+  async getTotalDocsCount(): Promise<ElasticApiResponse<number>> {
+    try {
+      const result = await this.fetchWithAuth<any>('/_cat/count?v&format=json');
+      if (!result.success) return result;
+      if (!Array.isArray(result.data) || result.data.length === 0) {
+        return {
+          success: false,
+          error: 'Ошибка формата данных: не удалось получить общее количество документов',
+        };
+      }
+      const count = parseInt(result.data[0].count, 10);
+      return { success: true, data: count };
+    } catch (error) {
+      return {
+        success: false,
+        error: `Ошибка получения общего количества документов: ${error instanceof Error ? error.message : String(error)}`,
+      };
+    }
+  }
+
   formatBytes(bytes: number, decimals = 2) {
     if (bytes === 0) return '0 Bytes';
     
