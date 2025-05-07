@@ -230,7 +230,7 @@ const DashboardPage: React.FC = () => {
               </div>
               
               <div className="metric-card">
-                <h3 className="font-medium mb-2">Общий размер Индексов</h3>
+                <h3 className="font-medium mb-2">Общий размер индексов</h3>
                 <p className="text-3xl font-bold">
                   {indicesLoading ? (
                     <span className="animate-pulse">...</span>
