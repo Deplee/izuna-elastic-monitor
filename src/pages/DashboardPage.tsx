@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import Header from '@/components/Header';
 import ClusterHealthCard from '@/components/ClusterHealthCard';
@@ -19,6 +18,10 @@ const DashboardPage: React.FC = () => {
   const [indices, setIndices] = useState<IndexInfo[] | null>(null);
   const [indicesLoading, setIndicesLoading] = useState(true);
   const [indicesError, setIndicesError] = useState<string | null>(null);
+
+  const [relocatingShards, setRelocatingShards] = useState<any[]>([]);
+  const [relocatingLoading, setRelocatingLoading] = useState(true);
+  const [relocatingError, setRelocatingError] = useState<string | null>(null);
 
   const { toast } = useToast();
 
@@ -76,10 +79,28 @@ const DashboardPage: React.FC = () => {
     }
   };
 
+  const fetchRelocatingShards = async () => {
+    setRelocatingLoading(true);
+    setRelocatingError(null);
+    try {
+      const response = await elasticService.getRelocatingShards();
+      if (response.success && response.data) {
+        setRelocatingShards(response.data);
+      } else {
+        setRelocatingError(response.error || 'Не удалось получить перемещаемые шарды');
+      }
+    } catch (error) {
+      setRelocatingError(`Ошибка: ${error instanceof Error ? error.message : 'Неизвестная ошибка'}`);
+    } finally {
+      setRelocatingLoading(false);
+    }
+  };
+
   const fetchAllData = () => {
     fetchClusterHealth();
     fetchNodes();
     fetchIndices();
+    fetchRelocatingShards();
   };
 
   useEffect(() => {
@@ -161,7 +182,43 @@ const DashboardPage: React.FC = () => {
           error={nodesError}
           onRefresh={fetchNodes} 
         />
-        
+
+        {relocatingLoading ? (
+          <div className="metric-card mt-4">Загрузка перемещаемых шардов...</div>
+        ) : relocatingError ? (
+          <div className="metric-card mt-4 text-red-500">{relocatingError}</div>
+        ) : (
+          <div className="metric-card mt-4">
+            <h3 className="font-medium mb-2">Перемещаемые шарды</h3>
+            <div className="overflow-x-auto">
+              {relocatingShards.length > 0 ? (
+                <table className="min-w-full text-sm">
+                  <thead>
+                    <tr>
+                      <th className="px-2 py-1 text-left">Индекс</th>
+                      <th className="px-2 py-1 text-left">Шард</th>
+                      <th className="px-2 py-1 text-left">Откуда</th>
+                      <th className="px-2 py-1 text-left">Куда</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {relocatingShards.map((shard, idx) => (
+                      <tr key={idx}>
+                        <td className="px-2 py-1">{shard.index}</td>
+                        <td className="px-2 py-1">{shard.shard}</td>
+                        <td className="px-2 py-1">{shard.fromNode}</td>
+                        <td className="px-2 py-1">{shard.toNode}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : (
+                <div className="text-muted-foreground px-2 py-1">Нет перемещаемых шардов</div>
+              )}
+            </div>
+          </div>
+        )}
+
         <IndicesTable 
           indices={indices} 
           isLoading={indicesLoading} 

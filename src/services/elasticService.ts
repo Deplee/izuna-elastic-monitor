@@ -45,6 +45,14 @@ interface ElasticApiResponse<T> {
   error?: string;
 }
 
+interface RelocatingShardInfo {
+  index: string;
+  shard: string;
+  fromNode: string;
+  toNode: string;
+  state: string;
+}
+
 class ElasticService {
   private config: ElasticConnectionConfig | null = null;
 
@@ -240,6 +248,36 @@ class ElasticService {
       return { 
         success: false, 
         error: `Ошибка получения информации об индексах: ${error instanceof Error ? error.message : String(error)}` 
+      };
+    }
+  }
+
+  async getRelocatingShards(): Promise<ElasticApiResponse<RelocatingShardInfo[]>> {
+    try {
+      const result = await this.fetchWithAuth<any>(
+        '/_cat/shards?format=json'
+      );
+      if (!result.success) return result;
+      if (!Array.isArray(result.data)) {
+        return {
+          success: false,
+          error: 'Ошибка формата данных: информация о шардах имеет неверный формат',
+        };
+      }
+      // Фильтруем только RELOCATING
+      const relocating = result.data.filter((shard: any) => shard.state === 'RELOCATING');
+      const relocatingShards: RelocatingShardInfo[] = relocating.map((shard: any) => ({
+        index: shard.index,
+        shard: shard.shard,
+        fromNode: shard['node'],
+        toNode: shard['target'],
+        state: shard.state,
+      }));
+      return { success: true, data: relocatingShards };
+    } catch (error) {
+      return {
+        success: false,
+        error: `Ошибка получения перемещаемых шардов: ${error instanceof Error ? error.message : String(error)}`,
       };
     }
   }
