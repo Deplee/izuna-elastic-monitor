@@ -1,0 +1,176 @@
+
+import React, { useState, useEffect } from 'react';
+import Header from '@/components/Header';
+import ClusterHealthCard from '@/components/ClusterHealthCard';
+import NodesTable from '@/components/NodesTable';
+import IndicesTable from '@/components/IndicesTable';
+import elasticService, { ClusterHealth, Node, IndexInfo } from '@/services/elasticService';
+import { useToast } from '@/components/ui/use-toast';
+
+const DashboardPage: React.FC = () => {
+  const [clusterHealth, setClusterHealth] = useState<ClusterHealth | null>(null);
+  const [healthLoading, setHealthLoading] = useState(true);
+  const [healthError, setHealthError] = useState<string | null>(null);
+
+  const [nodes, setNodes] = useState<Node[] | null>(null);
+  const [nodesLoading, setNodesLoading] = useState(true);
+  const [nodesError, setNodesError] = useState<string | null>(null);
+
+  const [indices, setIndices] = useState<IndexInfo[] | null>(null);
+  const [indicesLoading, setIndicesLoading] = useState(true);
+  const [indicesError, setIndicesError] = useState<string | null>(null);
+
+  const { toast } = useToast();
+
+  const fetchClusterHealth = async () => {
+    setHealthLoading(true);
+    setHealthError(null);
+    
+    try {
+      const response = await elasticService.getClusterHealth();
+      if (response.success && response.data) {
+        setClusterHealth(response.data);
+      } else {
+        setHealthError(response.error || 'Не удалось получить данные о здоровье кластера');
+      }
+    } catch (error) {
+      setHealthError(`Ошибка: ${error instanceof Error ? error.message : 'Неизвестная ошибка'}`);
+    } finally {
+      setHealthLoading(false);
+    }
+  };
+
+  const fetchNodes = async () => {
+    setNodesLoading(true);
+    setNodesError(null);
+    
+    try {
+      const response = await elasticService.getNodes();
+      if (response.success && response.data) {
+        setNodes(response.data);
+      } else {
+        setNodesError(response.error || 'Не удалось получить данные о нодах');
+      }
+    } catch (error) {
+      setNodesError(`Ошибка: ${error instanceof Error ? error.message : 'Неизвестная ошибка'}`);
+    } finally {
+      setNodesLoading(false);
+    }
+  };
+
+  const fetchIndices = async () => {
+    setIndicesLoading(true);
+    setIndicesError(null);
+    
+    try {
+      const response = await elasticService.getIndices();
+      if (response.success && response.data) {
+        setIndices(response.data);
+      } else {
+        setIndicesError(response.error || 'Не удалось получить данные об индексах');
+      }
+    } catch (error) {
+      setIndicesError(`Ошибка: ${error instanceof Error ? error.message : 'Неизвестная ошибка'}`);
+    } finally {
+      setIndicesLoading(false);
+    }
+  };
+
+  const fetchAllData = () => {
+    fetchClusterHealth();
+    fetchNodes();
+    fetchIndices();
+  };
+
+  useEffect(() => {
+    fetchAllData();
+    
+    // Интервал обновления данных
+    const interval = setInterval(() => {
+      fetchAllData();
+    }, 30000); // Обновление каждые 30 секунд
+    
+    return () => clearInterval(interval);
+  }, []);
+
+  return (
+    <div className="min-h-screen bg-background flex flex-col">
+      <Header />
+      
+      <div className="flex-grow p-6 space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <ClusterHealthCard 
+            health={clusterHealth} 
+            isLoading={healthLoading} 
+            error={healthError}
+            onRefresh={fetchClusterHealth} 
+          />
+          
+          <div className="col-span-1 md:col-span-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="metric-card">
+                <h3 className="font-medium mb-2">Количество нод</h3>
+                <p className="text-3xl font-bold">
+                  {nodesLoading ? (
+                    <span className="animate-pulse">...</span>
+                  ) : nodes ? nodes.length : 0}
+                </p>
+              </div>
+              
+              <div className="metric-card">
+                <h3 className="font-medium mb-2">Количество индексов</h3>
+                <p className="text-3xl font-bold">
+                  {indicesLoading ? (
+                    <span className="animate-pulse">...</span>
+                  ) : indices ? indices.length : 0}
+                </p>
+              </div>
+              
+              <div className="metric-card">
+                <h3 className="font-medium mb-2">Всего документов</h3>
+                <p className="text-3xl font-bold">
+                  {indicesLoading ? (
+                    <span className="animate-pulse">...</span>
+                  ) : indices ? (
+                    indices.reduce((sum, index) => sum + index.docsCount, 0).toLocaleString()
+                  ) : 0}
+                </p>
+              </div>
+              
+              <div className="metric-card">
+                <h3 className="font-medium mb-2">Общий размер</h3>
+                <p className="text-3xl font-bold">
+                  {indicesLoading ? (
+                    <span className="animate-pulse">...</span>
+                  ) : indices && indices.length > 0 ? (
+                    indices.reduce((total, index) => {
+                      const sizeMatch = index.storageSize.match(/(\d+(\.\d+)?)/);
+                      const size = sizeMatch ? parseFloat(sizeMatch[1]) : 0;
+                      return total + size;
+                    }, 0).toFixed(1) + " B"
+                  ) : "0 B"}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <NodesTable 
+          nodes={nodes} 
+          isLoading={nodesLoading} 
+          error={nodesError}
+          onRefresh={fetchNodes} 
+        />
+        
+        <IndicesTable 
+          indices={indices} 
+          isLoading={indicesLoading} 
+          error={indicesError}
+          onRefresh={fetchIndices} 
+        />
+      </div>
+    </div>
+  );
+};
+
+export default DashboardPage;
