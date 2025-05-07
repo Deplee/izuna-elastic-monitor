@@ -169,43 +169,44 @@ class ElasticService {
 
   async getNodes(): Promise<ElasticApiResponse<Node[]>> {
     try {
-      const result = await this.fetchWithAuth<any>('/_nodes/stats');
-      
-      if (!result.success) return result;
-      
-      const nodesData = result.data?.nodes;
-      
-      // Проверяем, что nodesData существует и является объектом
-      if (!nodesData || typeof nodesData !== 'object') {
-        return { 
-          success: false, 
-          error: 'Ошибка формата данных: информация о нодах отсутствует или имеет неверный формат' 
+      // Получаем статистику по нодам
+      const statsResult = await this.fetchWithAuth<any>('/_nodes/stats');
+      if (!statsResult.success) return statsResult;
+      const nodesStats = statsResult.data?.nodes;
+      if (!nodesStats || typeof nodesStats !== 'object') {
+        return {
+          success: false,
+          error: 'Ошибка формата данных: информация о нодах отсутствует или имеет неверный формат'
         };
       }
-      
-      const nodes: Node[] = Object.keys(nodesData).map(nodeId => {
-        const node = nodesData[nodeId];
+      // Получаем версии по нодам
+      const versionResult = await this.fetchWithAuth<any>('/_nodes/_all/version');
+      if (!versionResult.success) return versionResult;
+      const nodesVersion = versionResult.data?.nodes;
+      // Собираем данные по нодам
+      const nodes: Node[] = Object.keys(nodesStats).map(nodeId => {
+        const node = nodesStats[nodeId];
         const totalDiskBytes = node.fs?.total?.total_in_bytes || 0;
         const availableDiskBytes = node.fs?.total?.available_in_bytes || 0;
         const freeDiskBytes = node.fs?.total?.free_in_bytes || 0;
-        
-        // Расчет потребления ресурсов
         const cpuUsage = node.process?.cpu?.percent || 0;
         const heapPercent = node.jvm?.mem?.heap_used_percent || 0;
-        const memoryUsage = heapPercent; // Упрощенно используем heap как индикатор памяти
-        
-        // Определение статуса ноды
+        const memoryUsage = heapPercent;
         let status: 'green' | 'yellow' | 'red' = 'green';
         if (heapPercent > 85 || cpuUsage > 85) {
           status = 'red';
         } else if (heapPercent > 70 || cpuUsage > 70) {
           status = 'yellow';
         }
-        
+        // Получаем версию для этой ноды
+        let version = '';
+        if (nodesVersion && nodesVersion[nodeId] && nodesVersion[nodeId].version) {
+          version = nodesVersion[nodeId].version;
+        }
         return {
           id: nodeId,
           name: node.name,
-          version: node.version,
+          version,
           roles: node.roles || [],
           host: node.host || '',
           ip: node.ip || '',
@@ -221,13 +222,12 @@ class ElasticService {
           status
         };
       });
-      
       return { success: true, data: nodes };
     } catch (error) {
       console.error('Ошибка при получении информации о нодах:', error);
-      return { 
-        success: false, 
-        error: `Ошибка получения информации о нодах: ${error instanceof Error ? error.message : String(error)}` 
+      return {
+        success: false,
+        error: `Ошибка получения информации о нодах: ${error instanceof Error ? error.message : String(error)}`
       };
     }
   }
