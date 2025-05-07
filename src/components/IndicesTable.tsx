@@ -15,7 +15,7 @@ interface IndicesTableProps {
 
 const IndicesTable: React.FC<IndicesTableProps> = ({ indices, isLoading, error, onRefresh }) => {
   const [searchTerm, setSearchTerm] = useState('');
-  const [sortField, setSortField] = useState<'docsCount' | 'storageSize' | 'primaryShards' | 'replicaShards' | null>(null);
+  const [sortField, setSortField] = useState<'status' | 'docsCount' | 'storageSize' | 'primaryShards' | 'replicaShards' | null>(null);
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
   const getStatusIcon = (status: string) => {
@@ -47,16 +47,20 @@ const IndicesTable: React.FC<IndicesTableProps> = ({ indices, isLoading, error, 
 
   if (sortField) {
     filteredIndices = [...filteredIndices].sort((a, b) => {
-      let aValue: number, bValue: number;
+      let aValue: number | string, bValue: number | string;
       if (sortField === 'storageSize') {
         aValue = parseSize(a.storageSize);
         bValue = parseSize(b.storageSize);
+      } else if (sortField === 'status') {
+        const order = { green: 3, yellow: 2, red: 1 };
+        aValue = order[a.status] || 0;
+        bValue = order[b.status] || 0;
       } else {
         aValue = a[sortField] as number;
         bValue = b[sortField] as number;
       }
-      if (sortOrder === 'asc') return aValue - bValue;
-      return bValue - aValue;
+      if (sortOrder === 'asc') return aValue > bValue ? 1 : -1;
+      return aValue < bValue ? 1 : -1;
     });
   }
 
@@ -123,7 +127,15 @@ const IndicesTable: React.FC<IndicesTableProps> = ({ indices, isLoading, error, 
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Статус</TableHead>
+                  <TableHead
+                    onClick={() => handleSort('status')}
+                    style={{ cursor: 'pointer', userSelect: 'none', display: 'flex', alignItems: 'center', gap: 4 }}
+                  >
+                    <span>Статус</span>
+                    {sortField === 'status' && (
+                      <span style={{ color: '#90a4ae' }}>{sortOrder === 'asc' ? '▲' : '▼'}</span>
+                    )}
+                  </TableHead>
                   <TableHead>Индекс</TableHead>
                   <TableHead onClick={() => handleSort('docsCount')} style={{cursor: 'pointer'}}>
                     Документов {sortField === 'docsCount' ? (sortOrder === 'asc' ? '▲' : '▼') : ''}
