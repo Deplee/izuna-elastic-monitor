@@ -54,6 +54,10 @@ const DashboardPage: React.FC = () => {
   const [initializingLoading, setInitializingLoading] = useState(true);
   const [initializingError, setInitializingError] = useState<string | null>(null);
 
+  const [unassignedShards, setUnassignedShards] = useState<any[]>([]);
+  const [unassignedLoading, setUnassignedLoading] = useState(true);
+  const [unassignedError, setUnassignedError] = useState<string | null>(null);
+
   const { toast } = useToast();
 
   const fetchClusterHealth = async () => {
@@ -144,12 +148,30 @@ const DashboardPage: React.FC = () => {
     }
   };
 
+  const fetchUnassignedShards = async () => {
+    setUnassignedLoading(true);
+    setUnassignedError(null);
+    try {
+      const response = await elasticService.getUnassignedShards();
+      if (response.success && response.data) {
+        setUnassignedShards(response.data);
+      } else {
+        setUnassignedError(response.error || 'Не удалось получить неназначенные шарды');
+      }
+    } catch (error) {
+      setUnassignedError(`Ошибка: ${error instanceof Error ? error.message : 'Неизвестная ошибка'}`);
+    } finally {
+      setUnassignedLoading(false);
+    }
+  };
+
   const fetchAllData = () => {
     fetchClusterHealth();
     fetchNodes();
     fetchIndices();
     fetchRelocatingShards();
     fetchInitializingShards();
+    fetchUnassignedShards();
   };
 
   useEffect(() => {
@@ -293,6 +315,40 @@ const DashboardPage: React.FC = () => {
                 </table>
               ) : (
                 <div className="text-muted-foreground px-2 py-1">Нет инициализируемых шардов</div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {unassignedLoading ? (
+          <div className="metric-card mt-4">Загрузка неназначенных шардов...</div>
+        ) : unassignedError ? (
+          <div className="metric-card mt-4 text-red-500">{unassignedError}</div>
+        ) : (
+          <div className="metric-card mt-4">
+            <h3 className="font-medium mb-2">Неназначенные шарды</h3>
+            <div className="overflow-x-auto">
+              {unassignedShards.length > 0 ? (
+                <table className="min-w-full text-sm">
+                  <thead>
+                    <tr>
+                      <th className="px-2 py-1 text-left">Индекс</th>
+                      <th className="px-2 py-1 text-left">Шард</th>
+                      <th className="px-2 py-1 text-left">Нода</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {unassignedShards.map((shard, idx) => (
+                      <tr key={idx}>
+                        <td className="px-2 py-1">{shard.index}</td>
+                        <td className="px-2 py-1">{shard.shard}</td>
+                        <td className="px-2 py-1">{shard.node}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : (
+                <div className="text-muted-foreground px-2 py-1">Нет неназначенных шардов</div>
               )}
             </div>
           </div>
