@@ -513,11 +513,16 @@ class ElasticService {
 
   async getNodesIndexingStats(): Promise<ElasticApiResponse<any>> {
     try {
-      const result = await this.fetchWithAuth<any>(`/_nodes/stats/indices?filter_path=**.indexing.index_time_in_millis`);
+      const result = await this.fetchWithAuth<any>(
+        '/_nodes/stats/indices?filter_path=**.indexing.index_time_in_millis'
+      );
       if (!result.success) return result;
       return { success: true, data: result.data };
     } catch (error) {
-      return { success: false, error: `Ошибка получения статистики индексации по узлам: ${error instanceof Error ? error.message : String(error)}` };
+      return {
+        success: false,
+        error: `Ошибка получения статистики индексации по узлам: ${error instanceof Error ? error.message : String(error)}`,
+      };
     }
   }
 

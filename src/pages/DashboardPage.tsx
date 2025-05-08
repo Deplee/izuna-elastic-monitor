@@ -86,7 +86,13 @@ const DashboardPage: React.FC = () => {
   const [nodesIndexingStatsLoading, setNodesIndexingStatsLoading] = useState(false);
   const [nodesIndexingStatsError, setNodesIndexingStatsError] = useState<string | null>(null);
 
-  const [selectedIndex, setSelectedIndex] = useState('');
+  // Добавить useState для сортировки времени индексации по узлам
+  const [indexingNodesSort, setIndexingNodesSort] = useState<{field: string, order: 'asc'|'desc'}>(() => {
+    const saved = localStorage.getItem('indexingNodesSort');
+    return saved ? JSON.parse(saved) : {field: 'nodeId', order: 'asc'};
+  });
+
+  const [selectedIndex, setSelectedIndex] = useState(() => localStorage.getItem('selectedIndex') || '');
   const [singleIndexStats, setSingleIndexStats] = useState<any>(null);
   const [singleIndexStatsLoading, setSingleIndexStatsLoading] = useState(false);
   const [singleIndexStatsError, setSingleIndexStatsError] = useState<string | null>(null);
@@ -94,6 +100,10 @@ const DashboardPage: React.FC = () => {
   const [pendingTasks, setPendingTasks] = useState<any[]>([]);
   const [pendingTasksLoading, setPendingTasksLoading] = useState(false);
   const [pendingTasksError, setPendingTasksError] = useState<string | null>(null);
+  const [pendingTasksSort, setPendingTasksSort] = useState(() => {
+    const saved = localStorage.getItem('pendingTasksSort');
+    return saved ? JSON.parse(saved) : {field: 'insert_order', order: 'asc'};
+  });
 
   // --- Active Tasks ---
   const [activeTasks, setActiveTasks] = useState<any>(null);
@@ -116,10 +126,10 @@ const DashboardPage: React.FC = () => {
   const [snapshots, setSnapshots] = useState<any>(null);
   const [snapshotsLoading, setSnapshotsLoading] = useState(false);
   const [snapshotsError, setSnapshotsError] = useState<string | null>(null);
-  const [snapshotSearch, setSnapshotSearch] = useState('');
+  const [snapshotSearch, setSnapshotSearch] = useState(() => localStorage.getItem('snapshotSearch') || '');
 
   // --- Snapshot Status ---
-  const [snapshotRepo, setSnapshotRepo] = useState('');
+  const [snapshotRepo, setSnapshotRepo] = useState(() => localStorage.getItem('snapshotRepo') || '');
   const [snapshotStatus, setSnapshotStatus] = useState<any>(null);
   const [snapshotStatusLoading, setSnapshotStatusLoading] = useState(false);
   const [snapshotStatusError, setSnapshotStatusError] = useState<string | null>(null);
@@ -158,6 +168,10 @@ const DashboardPage: React.FC = () => {
   });
   const [openAccordionIndexingStatsIndices, setOpenAccordionIndexingStatsIndices] = useState(() => {
     const saved = localStorage.getItem('openAccordionIndexingStatsIndices');
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [openAccordionIndexingStatsNodes, setOpenAccordionIndexingStatsNodes] = useState(() => {
+    const saved = localStorage.getItem('openAccordionIndexingStatsNodes');
     return saved ? JSON.parse(saved) : [];
   });
   const [openAccordionAllocationExplain, setOpenAccordionAllocationExplain] = useState(() => {
@@ -515,6 +529,34 @@ const DashboardPage: React.FC = () => {
     return () => clearInterval(interval);
   }, []);
 
+  // Add handlers for state changes
+  const handleSelectedIndexChange = (value: string) => {
+    setSelectedIndex(value);
+    localStorage.setItem('selectedIndex', value);
+  };
+
+  const handleSnapshotRepoChange = (value: string) => {
+    setSnapshotRepo(value);
+    localStorage.setItem('snapshotRepo', value);
+  };
+
+  const handleSnapshotSearchChange = (value: string) => {
+    setSnapshotSearch(value);
+    localStorage.setItem('snapshotSearch', value);
+  };
+
+  const handlePendingTasksSort = (field: string) => {
+    const newSort = {
+      field,
+      order: pendingTasksSort.field === field ? (pendingTasksSort.order === 'asc' ? 'desc' : 'asc') : 'desc',
+    };
+    setPendingTasksSort(newSort);
+    localStorage.setItem('pendingTasksSort', JSON.stringify(newSort));
+  };
+
+  // --- Снапшоты ---
+  const [snapshotsSort, setSnapshotsSort] = useState<{field: string, order: 'asc'|'desc'}>({field: 'id', order: 'asc'});
+
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <Header />
@@ -808,61 +850,6 @@ const DashboardPage: React.FC = () => {
                 </AccordionContent>
               </AccordionItem>
             </Accordion>
-            {/* Snapshots */}
-            <Accordion type="multiple" value={openAccordionSnapshots} onValueChange={v => { setOpenAccordionSnapshots(v); localStorage.setItem('openAccordionSnapshots', JSON.stringify(v)); }}>
-              <AccordionItem value="snapshots">
-                <AccordionTrigger>Снапшоты</AccordionTrigger>
-                <AccordionContent>
-                  <div className="flex items-center gap-2 mb-2">
-                    <input
-                      type="text"
-                      className="border rounded px-2 py-1 text-xs bg-background text-foreground"
-                      placeholder="Поиск по имени снапшота"
-                      value={snapshotSearch}
-                      onChange={e => setSnapshotSearch(e.target.value)}
-                      style={{ minWidth: 200 }}
-                    />
-                    <Button variant="outline" onClick={fetchSnapshots} disabled={snapshotsLoading}>
-                      <RefreshCw className="mr-2 h-4 w-4" />
-                      Обновить
-                    </Button>
-                  </div>
-                  {snapshotsLoading ? (
-                    <div>Загрузка снапшотов...</div>
-                  ) : snapshotsError ? (
-                    <div className="text-red-500">{snapshotsError}</div>
-                  ) : snapshots && typeof snapshots === 'string' ? (
-                    (() => {
-                      const lines = snapshots.trim().split('\n');
-                      if (lines.length < 2) return <div className="text-muted-foreground">Нет данных о снапшотах</div>;
-                      const headers = lines[0].split(/\s+/);
-                      const rows = lines.slice(1).map(line => line.split(/\s+/));
-                      const filteredRows = rows.filter(row => !snapshotSearch || row[0]?.includes(snapshotSearch));
-                      return (
-                        <div className="bg-muted p-2 rounded overflow-x-auto">
-                          <table className="min-w-full text-xs">
-                            <thead>
-                              <tr>
-                                {headers.map((h, i) => <th key={i} className="px-2 py-1 text-left">{h}</th>)}
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {filteredRows.map((row, idx) => (
-                                <tr key={idx}>
-                                  {row.map((cell, i) => <td key={i} className="px-2 py-1">{cell}</td>)}
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                      );
-                    })()
-                  ) : (
-                    <div className="text-muted-foreground">Нет данных о снапшотах</div>
-                  )}
-                </AccordionContent>
-              </AccordionItem>
-            </Accordion>
           </div>
         </TabsContent>
         <TabsContent value="debug">
@@ -1036,7 +1023,7 @@ const DashboardPage: React.FC = () => {
                       className="border rounded px-2 py-1 text-xs bg-background text-foreground"
                       placeholder="Введите имя индекса"
                       value={selectedIndex}
-                      onChange={e => setSelectedIndex(e.target.value)}
+                      onChange={e => handleSelectedIndexChange(e.target.value)}
                       onKeyDown={e => { if (e.key === 'Enter') fetchSingleIndexStats(); }}
                       style={{ minWidth: 200 }}
                     />
@@ -1090,6 +1077,82 @@ const DashboardPage: React.FC = () => {
                     })()
                   ) : (
                     <div className="text-muted-foreground">Нет данных</div>
+                  )}
+                </AccordionContent>
+              </AccordionItem>
+            </Accordion>
+            {/* Снапшоты */}
+            <Accordion type="multiple" value={openAccordionSnapshots} onValueChange={v => { setOpenAccordionSnapshots(v); localStorage.setItem('openAccordionSnapshots', JSON.stringify(v)); }}>
+              <AccordionItem value="snapshots">
+                <AccordionTrigger>Снапшоты</AccordionTrigger>
+                <AccordionContent>
+                  <div className="flex items-center gap-2 mb-2">
+                    <input
+                      type="text"
+                      className="border rounded px-2 py-1 text-xs bg-background text-foreground"
+                      placeholder="Поиск по имени снапшота"
+                      value={snapshotSearch}
+                      onChange={e => handleSnapshotSearchChange(e.target.value)}
+                      style={{ minWidth: 200 }}
+                    />
+                    <Button variant="outline" onClick={fetchSnapshots} disabled={snapshotsLoading}>
+                      <RefreshCw className="mr-2 h-4 w-4" />
+                      Обновить
+                    </Button>
+                  </div>
+                  {snapshotsLoading ? (
+                    <div>Загрузка снапшотов...</div>
+                  ) : snapshotsError ? (
+                    <div className="text-red-500">{snapshotsError}</div>
+                  ) : snapshots && typeof snapshots === 'string' ? (
+                    (() => {
+                      const lines = snapshots.trim().split('\n');
+                      if (lines.length < 2) return <div className="text-muted-foreground">Нет данных о снапшотах</div>;
+                      const headers = lines[0].split(/\s+/);
+                      const rows = lines.slice(1).map(line => line.split(/\s+/));
+                      const filteredRows = rows.filter(row => !snapshotSearch || row[0]?.includes(snapshotSearch));
+                      // сортировка
+                      const {field, order} = snapshotsSort;
+                      const headerIdx = (name: string) => headers.findIndex(h => h === name);
+                      const sortedRows = [...filteredRows].sort((a, b) => {
+                        const idx = headerIdx(field);
+                        let aValue = a[idx], bValue = b[idx];
+                        // Попробуем привести к числу, если возможно
+                        if (!isNaN(Number(aValue)) && !isNaN(Number(bValue))) {
+                          aValue = Number(aValue);
+                          bValue = Number(bValue);
+                        }
+                        if (aValue === bValue) return 0;
+                        if (order === 'asc') return aValue > bValue ? 1 : -1;
+                        return aValue < bValue ? 1 : -1;
+                      });
+                      return (
+                        <div className="bg-muted p-2 rounded overflow-x-auto">
+                          <table className="min-w-full text-xs">
+                            <thead>
+                              <tr>
+                                {headers.map((h, i) => (
+                                  <th key={i} className="px-2 py-1 text-left cursor-pointer" onClick={() => {
+                                    setSnapshotsSort(s => ({field: h, order: s.field === h && s.order === 'asc' ? 'desc' : 'asc'}));
+                                  }}>
+                                    {h} {snapshotsSort.field === h ? (snapshotsSort.order === 'asc' ? '▲' : '▼') : ''}
+                                  </th>
+                                ))}
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {sortedRows.map((row, idx) => (
+                                <tr key={idx}>
+                                  {row.map((cell, i) => <td key={i} className="px-2 py-1">{cell}</td>)}
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      );
+                    })()
+                  ) : (
+                    <div className="text-muted-foreground">Нет данных о снапшотах</div>
                   )}
                 </AccordionContent>
               </AccordionItem>
@@ -1163,7 +1226,7 @@ const DashboardPage: React.FC = () => {
                       className="border rounded px-2 py-1 text-xs bg-background text-foreground"
                       placeholder="Имя репозитория"
                       value={snapshotRepo}
-                      onChange={e => setSnapshotRepo(e.target.value)}
+                      onChange={e => handleSnapshotRepoChange(e.target.value)}
                       style={{ minWidth: 200 }}
                     />
                     <Button variant="outline" onClick={fetchSnapshotStatus} disabled={!snapshotRepo || snapshotStatusLoading}>
