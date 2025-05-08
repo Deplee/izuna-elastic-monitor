@@ -14,9 +14,12 @@ interface IndicesTableProps {
 }
 
 const IndicesTable: React.FC<IndicesTableProps> = ({ indices, isLoading, error, onRefresh }) => {
-  const [searchTerm, setSearchTerm] = useState('');
-  const [sortField, setSortField] = useState<'status' | 'docsCount' | 'storageSize' | 'primaryShards' | 'replicaShards' | null>(null);
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  const [searchTerm, setSearchTerm] = useState(() => localStorage.getItem('indicesSearchTerm') || '');
+  const [sortField, setSortField] = useState<'status' | 'docsCount' | 'storageSize' | 'primaryShards' | 'replicaShards' | null>(() => {
+    const saved = localStorage.getItem('indicesSortField');
+    return saved ? (saved as any) : null;
+  });
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>(() => (localStorage.getItem('indicesSortOrder') as 'asc' | 'desc') || 'desc');
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -64,12 +67,21 @@ const IndicesTable: React.FC<IndicesTableProps> = ({ indices, isLoading, error, 
     });
   }
 
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchTerm(e.target.value);
+    localStorage.setItem('indicesSearchTerm', e.target.value);
+  };
+
   const handleSort = (field: typeof sortField) => {
     if (sortField === field) {
-      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+      const newOrder = sortOrder === 'asc' ? 'desc' : 'asc';
+      setSortOrder(newOrder);
+      localStorage.setItem('indicesSortOrder', newOrder);
     } else {
       setSortField(field);
       setSortOrder('desc');
+      localStorage.setItem('indicesSortField', field || '');
+      localStorage.setItem('indicesSortOrder', 'desc');
     }
   };
 
@@ -116,7 +128,7 @@ const IndicesTable: React.FC<IndicesTableProps> = ({ indices, isLoading, error, 
           <Input 
             placeholder="Поиск индексов..." 
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            onChange={handleSearchChange}
           />
         </div>
         

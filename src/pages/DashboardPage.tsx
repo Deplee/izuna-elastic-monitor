@@ -8,6 +8,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '@/components/ui/accordion';
 import { RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 
 // Функция для преобразования строки размера в байты
 function parseSizeToBytes(sizeStr: string): number {
@@ -68,7 +69,10 @@ const DashboardPage: React.FC = () => {
   const [threadPools, setThreadPools] = useState<any[]>([]);
   const [threadPoolsLoading, setThreadPoolsLoading] = useState(true);
   const [threadPoolsError, setThreadPoolsError] = useState<string | null>(null);
-  const [threadSort, setThreadSort] = useState<{[nodeId: string]: {field: string, order: 'asc' | 'desc'}} >({});
+  const [threadSort, setThreadSort] = useState(() => {
+    const saved = localStorage.getItem('threadSort');
+    return saved ? JSON.parse(saved) : {};
+  });
 
   const [hotThreads, setHotThreads] = useState<any>(null);
   const [hotThreadsLoading, setHotThreadsLoading] = useState(false);
@@ -95,7 +99,10 @@ const DashboardPage: React.FC = () => {
   const [activeTasks, setActiveTasks] = useState<any>(null);
   const [activeTasksLoading, setActiveTasksLoading] = useState(false);
   const [activeTasksError, setActiveTasksError] = useState<string | null>(null);
-  const [activeTasksSort, setActiveTasksSort] = useState<{field: string, order: 'asc' | 'desc'}>({field: 'node', order: 'asc'});
+  const [activeTasksSort, setActiveTasksSort] = useState(() => {
+    const saved = localStorage.getItem('activeTasksSort');
+    return saved ? JSON.parse(saved) : {field: 'node', order: 'asc'};
+  });
 
   // --- Allocation Explain ---
   const [allocation, setAllocation] = useState<any>(null);
@@ -117,7 +124,60 @@ const DashboardPage: React.FC = () => {
   const [snapshotStatusLoading, setSnapshotStatusLoading] = useState(false);
   const [snapshotStatusError, setSnapshotStatusError] = useState<string | null>(null);
 
-  const [openThreadPools, setOpenThreadPools] = useState<{[nodeId: string]: boolean}>({});
+  const [openAccordionIndices, setOpenAccordionIndices] = useState(() => {
+    const saved = localStorage.getItem('openAccordionIndices');
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [openAccordionReloc, setOpenAccordionReloc] = useState(() => {
+    const saved = localStorage.getItem('openAccordionReloc');
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [openAccordionInit, setOpenAccordionInit] = useState(() => {
+    const saved = localStorage.getItem('openAccordionInit');
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [openAccordionUnassigned, setOpenAccordionUnassigned] = useState(() => {
+    const saved = localStorage.getItem('openAccordionUnassigned');
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [openAccordionSnapshots, setOpenAccordionSnapshots] = useState(() => {
+    const saved = localStorage.getItem('openAccordionSnapshots');
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [openAccordionThreadPool, setOpenAccordionThreadPool] = useState(() => {
+    const saved = localStorage.getItem('openAccordionThreadPool');
+    return saved ? JSON.parse(saved) : {};
+  });
+  const [openAccordionHotThreads, setOpenAccordionHotThreads] = useState(() => {
+    const saved = localStorage.getItem('openAccordionHotThreads');
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [openAccordionPendingTasks, setOpenAccordionPendingTasks] = useState(() => {
+    const saved = localStorage.getItem('openAccordionPendingTasks');
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [openAccordionIndexingStatsIndices, setOpenAccordionIndexingStatsIndices] = useState(() => {
+    const saved = localStorage.getItem('openAccordionIndexingStatsIndices');
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [openAccordionAllocationExplain, setOpenAccordionAllocationExplain] = useState(() => {
+    const saved = localStorage.getItem('openAccordionAllocationExplain');
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [openAccordionSnapshotStatus, setOpenAccordionSnapshotStatus] = useState(() => {
+    const saved = localStorage.getItem('openAccordionSnapshotStatus');
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [openAccordionActiveTasks, setOpenAccordionActiveTasks] = useState(() => {
+    const saved = localStorage.getItem('openAccordionActiveTasks');
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  const [tab, setTab] = useState(() => localStorage.getItem('dashboardTab') || 'dashboard');
+  const handleTabChange = (value: string) => {
+    setTab(value);
+    localStorage.setItem('dashboardTab', value);
+  };
 
   const { toast } = useToast();
 
@@ -458,686 +518,674 @@ const DashboardPage: React.FC = () => {
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <Header />
-      
-      <div className="flex-grow p-6 space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <ClusterHealthCard 
-            health={clusterHealth} 
-            isLoading={healthLoading} 
-            error={healthError}
-            onRefresh={fetchClusterHealth} 
-          />
-          
-          <div className="col-span-1 md:col-span-2">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="metric-card">
-                <h3 className="font-medium mb-2">Количество нод</h3>
-                <p className="text-3xl font-bold">
-                  {nodesLoading ? (
-                    <span className="animate-pulse">...</span>
-                  ) : nodes ? nodes.length : 0}
-                </p>
-              </div>
-              
-              <div className="metric-card">
-                <h3 className="font-medium mb-2">Количество индексов</h3>
-                <p className="text-3xl font-bold">
-                  {indicesLoading ? (
-                    <span className="animate-pulse">...</span>
-                  ) : indices ? indices.length : 0}
-                </p>
-              </div>
-              
-              <div className="metric-card">
-                <h3 className="font-medium mb-2">Всего документов</h3>
-                <p className="text-3xl font-bold">
-                  {totalDocsLoading ? (
-                    <span className="animate-pulse">...</span>
-                  ) : totalDocsError ? (
-                    <span className="text-red-500">{totalDocsError}</span>
-                  ) : totalDocs !== null ? (
-                    totalDocs.toLocaleString()
-                  ) : 0}
-                </p>
-              </div>
-              
-              <div className="metric-card">
-                <h3 className="font-medium mb-2">Общий размер индексов</h3>
-                <p className="text-3xl font-bold">
-                  {indicesLoading ? (
-                    <span className="animate-pulse">...</span>
-                  ) : indices && indices.length > 0 ? (
-                    formatBytes(indices.reduce((total, index) => total + parseSizeToBytes(index.storageSize), 0))
-                  ) : "0 B"}
-                </p>
+      <Tabs value={tab} onValueChange={handleTabChange} className="mt-2">
+        <TabsList>
+          <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
+          <TabsTrigger value="debug">Debug</TabsTrigger>
+        </TabsList>
+        <TabsContent value="dashboard">
+          <div className="flex-grow p-6 space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <ClusterHealthCard 
+                health={clusterHealth} 
+                isLoading={healthLoading} 
+                error={healthError}
+                onRefresh={fetchClusterHealth} 
+              />
+              <div className="col-span-1 md:col-span-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="metric-card">
+                    <h3 className="font-medium mb-2">Количество нод</h3>
+                    <p className="text-3xl font-bold">
+                      {nodesLoading ? (
+                        <span className="animate-pulse">...</span>
+                      ) : nodes ? nodes.length : 0}
+                    </p>
+                  </div>
+                  <div className="metric-card">
+                    <h3 className="font-medium mb-2">Количество индексов</h3>
+                    <p className="text-3xl font-bold">
+                      {indicesLoading ? (
+                        <span className="animate-pulse">...</span>
+                      ) : indices ? indices.length : 0}
+                    </p>
+                  </div>
+                  <div className="metric-card">
+                    <h3 className="font-medium mb-2">Всего документов</h3>
+                    <p className="text-3xl font-bold">
+                      {totalDocsLoading ? (
+                        <span className="animate-pulse">...</span>
+                      ) : totalDocsError ? (
+                        <span className="text-red-500">{totalDocsError}</span>
+                      ) : totalDocs !== null ? (
+                        totalDocs.toLocaleString()
+                      ) : 0}
+                    </p>
+                  </div>
+                  <div className="metric-card">
+                    <h3 className="font-medium mb-2">Общий размер индексов</h3>
+                    <p className="text-3xl font-bold">
+                      {indicesLoading ? (
+                        <span className="animate-pulse">...</span>
+                      ) : indices && indices.length > 0 ? (
+                        formatBytes(indices.reduce((total, index) => total + parseSizeToBytes(index.storageSize), 0))
+                      ) : "0 B"}
+                    </p>
+                  </div>
+                </div>
               </div>
             </div>
-          </div>
-        </div>
-
-        <NodesTable 
-          nodes={nodes} 
-          isLoading={nodesLoading} 
-          error={nodesError}
-          onRefresh={fetchNodes} 
-        />
-
-        <Accordion type="multiple" className="bg-transparent mt-4">
-          <AccordionItem value="indices">
-            <AccordionTrigger>Индексы</AccordionTrigger>
-            <AccordionContent>
-              <IndicesTable 
-                indices={indices || []}
-                isLoading={indicesLoading}
-                error={indicesError}
-                onRefresh={fetchIndices}
-              />
-            </AccordionContent>
-          </AccordionItem>
-        </Accordion>
-
-        <div className="metric-card mt-4">
-          <div className="flex items-center justify-between mb-2">
-            <h3 className="font-medium">Thread Pool</h3>
-            <Button variant="outline" onClick={fetchThreadPools} disabled={threadPoolsLoading}>
-              <RefreshCw className="mr-2 h-4 w-4" />
-              Обновить
-            </Button>
-          </div>
-          {threadPoolsLoading ? (
-            <div>Загрузка thread pool...</div>
-          ) : threadPoolsError ? (
-            <div className="text-red-500">{threadPoolsError}</div>
-          ) : (
-            <Accordion type="multiple" className="bg-transparent">
-              {threadPools.map((node: any) => {
-                const sort = threadSort[node.nodeId] || {field: 'name', order: 'asc'};
-                const sortedPools = [...node.pools].sort((a, b) => {
-                  let aValue = a[sort.field], bValue = b[sort.field];
-                  if (typeof aValue === 'string') aValue = aValue.toLowerCase();
-                  if (typeof bValue === 'string') bValue = bValue.toLowerCase();
-                  if (aValue === bValue) return 0;
-                  if (sort.order === 'asc') return aValue > bValue ? 1 : -1;
-                  return aValue < bValue ? 1 : -1;
-                });
-                const handleSort = (field: string) => {
-                  setThreadSort(prev => ({
-                    ...prev,
-                    [node.nodeId]: {
-                      field,
-                      order: sort.field === field ? (sort.order === 'asc' ? 'desc' : 'asc') : 'desc',
-                    }
-                  }));
-                };
-                const open = openThreadPools[node.nodeId] || false;
-                const toggle = () => setOpenThreadPools(prev => ({
-                  ...prev,
-                  [node.nodeId]: !prev[node.nodeId]
-                }));
-                return (
-                  <div key={node.nodeId} className="mb-2">
-                    <button
-                      className="text-left font-semibold mb-1 focus:outline-none hover:underline"
-                      onClick={toggle}
-                    >
-                      {open ? '▼' : '►'} {node.nodeName}
-                    </button>
-                    {open && (
-                      <div className="bg-muted p-2 rounded overflow-x-auto">
-                        <table className="min-w-full text-xs">
-                          <thead>
-                            <tr>
-                              <th className="px-2 py-1 text-left cursor-pointer" onClick={() => handleSort('name')}>Pool {sort.field === 'name' ? (sort.order === 'asc' ? '▲' : '▼') : ''}</th>
-                              <th className="px-2 py-1 text-left cursor-pointer" onClick={() => handleSort('active')}>Active {sort.field === 'active' ? (sort.order === 'asc' ? '▲' : '▼') : ''}</th>
-                              <th className="px-2 py-1 text-left cursor-pointer" onClick={() => handleSort('queue')}>Queue {sort.field === 'queue' ? (sort.order === 'asc' ? '▲' : '▼') : ''}</th>
-                              <th className="px-2 py-1 text-left cursor-pointer" onClick={() => handleSort('rejected')}>Rejected {sort.field === 'rejected' ? (sort.order === 'asc' ? '▲' : '▼') : ''}</th>
-                              <th className="px-2 py-1 text-left cursor-pointer" onClick={() => handleSort('completed')}>Completed {sort.field === 'completed' ? (sort.order === 'asc' ? '▲' : '▼') : ''}</th>
-                              <th className="px-2 py-1 text-left cursor-pointer" onClick={() => handleSort('threads')}>Threads {sort.field === 'threads' ? (sort.order === 'asc' ? '▲' : '▼') : ''}</th>
-                              <th className="px-2 py-1 text-left cursor-pointer" onClick={() => handleSort('largest')}>Largest {sort.field === 'largest' ? (sort.order === 'asc' ? '▲' : '▼') : ''}</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {sortedPools.map((pool, idx) => (
-                              <tr key={pool.name + idx}>
-                                <td className="px-2 py-1 font-medium">{pool.name}</td>
-                                <td className="px-2 py-1">{pool.active}</td>
-                                <td className="px-2 py-1">{pool.queue}</td>
-                                <td className="px-2 py-1">{pool.rejected}</td>
-                                <td className="px-2 py-1">{pool.completed}</td>
-                                <td className="px-2 py-1">{pool.threads}</td>
-                                <td className="px-2 py-1">{pool.largest}</td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
+            <NodesTable 
+              nodes={nodes} 
+              isLoading={nodesLoading} 
+              error={nodesError}
+              onRefresh={fetchNodes} 
+            />
+            <Accordion type="multiple" className="bg-transparent mt-4">
+              <AccordionItem value="indices">
+                <AccordionTrigger>Индексы</AccordionTrigger>
+                <AccordionContent>
+                  <IndicesTable 
+                    indices={indices || []}
+                    isLoading={indicesLoading}
+                    error={indicesError}
+                    onRefresh={fetchIndices}
+                  />
+                </AccordionContent>
+              </AccordionItem>
             </Accordion>
-          )}
-        </div>
 
-        <Accordion type="multiple" className="bg-transparent mt-4">
-          <AccordionItem value="hot-threads">
-            <AccordionTrigger>Hot Threads</AccordionTrigger>
-            <AccordionContent>
-              <div className="flex justify-end mb-2">
-                <Button variant="outline" onClick={fetchHotThreads} disabled={hotThreadsLoading}>
+            {/* Новый Accordion для Активных задач */}
+            <Accordion type="multiple" value={openAccordionActiveTasks} onValueChange={v => { setOpenAccordionActiveTasks(v); localStorage.setItem('openAccordionActiveTasks', JSON.stringify(v)); }}>
+              <AccordionItem value="active-tasks">
+                <AccordionTrigger>Активные задачи</AccordionTrigger>
+                <AccordionContent>
+                  <div className="flex justify-end mb-2">
+                    <Button variant="outline" onClick={fetchActiveTasks} disabled={activeTasksLoading}>
+                      <RefreshCw className="mr-2 h-4 w-4" />
+                      Обновить
+                    </Button>
+                  </div>
+                  {activeTasksLoading ? (
+                    <div>Загрузка активных задач...</div>
+                  ) : activeTasksError ? (
+                    <div className="text-red-500">{activeTasksError}</div>
+                  ) : activeTasks && activeTasks.nodes ? (
+                    (() => {
+                      // Собираем все задачи в массив
+                      let tasks: any[] = [];
+                      Object.entries(activeTasks.nodes).forEach(([nodeId, node]: any) => {
+                        Object.entries(node.tasks || {}).forEach(([taskId, task]: any) => {
+                          tasks.push({
+                            node: node.name || nodeId,
+                            taskId,
+                            action: task.action,
+                            description: task.description || '-',
+                            runningTime: task.running_time_in_nanos ? (task.running_time_in_nanos / 1e9) : 0,
+                            status: task.status ? JSON.stringify(task.status) : '-',
+                          });
+                        });
+                      });
+                      // Сортировка
+                      const {field, order} = activeTasksSort;
+                      tasks = tasks.sort((a, b) => {
+                        let aValue = a[field], bValue = b[field];
+                        if (typeof aValue === 'string') aValue = aValue.toLowerCase();
+                        if (typeof bValue === 'string') bValue = bValue.toLowerCase();
+                        if (aValue === bValue) return 0;
+                        if (order === 'asc') return aValue > bValue ? 1 : -1;
+                        return aValue < bValue ? 1 : -1;
+                      });
+                      const handleSort = (field: string) => {
+                        const newSort = {
+                          field,
+                          order: activeTasksSort.field === field ? (activeTasksSort.order === 'asc' ? 'desc' : 'asc') : 'desc',
+                        };
+                        setActiveTasksSort(newSort);
+                        localStorage.setItem('activeTasksSort', JSON.stringify(newSort));
+                      };
+                      return (
+                        <div className="bg-muted p-2 rounded overflow-x-auto">
+                          <table className="min-w-full text-xs">
+                            <thead>
+                              <tr>
+                                <th className="px-2 py-1 text-left cursor-pointer" onClick={() => handleSort('node')}>Узел {activeTasksSort.field === 'node' ? (activeTasksSort.order === 'asc' ? '▲' : '▼') : ''}</th>
+                                <th className="px-2 py-1 text-left cursor-pointer" onClick={() => handleSort('taskId')}>ID задачи {activeTasksSort.field === 'taskId' ? (activeTasksSort.order === 'asc' ? '▲' : '▼') : ''}</th>
+                                <th className="px-2 py-1 text-left cursor-pointer" onClick={() => handleSort('action')}>Тип {activeTasksSort.field === 'action' ? (activeTasksSort.order === 'asc' ? '▲' : '▼') : ''}</th>
+                                <th className="px-2 py-1 text-left cursor-pointer" onClick={() => handleSort('description')}>Описание {activeTasksSort.field === 'description' ? (activeTasksSort.order === 'asc' ? '▲' : '▼') : ''}</th>
+                                <th className="px-2 py-1 text-left cursor-pointer" onClick={() => handleSort('runningTime')}>Время выполнения {activeTasksSort.field === 'runningTime' ? (activeTasksSort.order === 'asc' ? '▲' : '▼') : ''}</th>
+                                <th className="px-2 py-1 text-left cursor-pointer" onClick={() => handleSort('status')}>Статус {activeTasksSort.field === 'status' ? (activeTasksSort.order === 'asc' ? '▲' : '▼') : ''}</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {tasks.map((task, idx) => (
+                                <tr key={idx}>
+                                  <td className="px-2 py-1">{task.node}</td>
+                                  <td className="px-2 py-1">{task.taskId}</td>
+                                  <td className="px-2 py-1">{task.action}</td>
+                                  <td className="px-2 py-1">{task.description}</td>
+                                  <td className="px-2 py-1">{task.runningTime.toFixed(2)} сек</td>
+                                  <td className="px-2 py-1" style={{maxWidth: 300, whiteSpace: 'pre-wrap', wordBreak: 'break-all'}}>
+                                    {task.status && task.status !== '-' ? (
+                                      <pre className="whitespace-pre-wrap max-w-xs overflow-x-auto">{task.status}</pre>
+                                    ) : '-'}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      );
+                    })()
+                  ) : (
+                    <div className="text-muted-foreground">Нет активных задач</div>
+                  )}
+                </AccordionContent>
+              </AccordionItem>
+            </Accordion>
+            {/* Relocating, Initializing, Unassigned Shards */}
+            <Accordion type="multiple" value={openAccordionReloc} onValueChange={v => { setOpenAccordionReloc(v); localStorage.setItem('openAccordionReloc', JSON.stringify(v)); }}>
+              <AccordionItem value="relocating">
+                <AccordionTrigger>Перемещаемые шарды</AccordionTrigger>
+                <AccordionContent>
+                  <div className="flex justify-end mb-2">
+                    <Button variant="outline" onClick={fetchRelocatingShards} disabled={relocatingLoading}>
+                      <RefreshCw className="mr-2 h-4 w-4" />
+                      Обновить
+                    </Button>
+                  </div>
+                  {relocatingLoading ? (
+                    <div className="metric-card">Загрузка перемещаемых шардов...</div>
+                  ) : relocatingError ? (
+                    <div className="metric-card text-red-500">{relocatingError}</div>
+                  ) : (
+                    <div className="metric-card">
+                      <div className="overflow-x-auto">
+                        {relocatingShards.length > 0 ? (
+                          <table className="min-w-full text-sm">
+                            <thead>
+                              <tr>
+                                <th className="px-2 py-1 text-left">Индекс</th>
+                                <th className="px-2 py-1 text-left">Шард</th>
+                                <th className="px-2 py-1 text-left">Откуда</th>
+                                <th className="px-2 py-1 text-left">Куда</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {relocatingShards.map((shard, idx) => (
+                                <tr key={idx}>
+                                  <td className="px-2 py-1">{shard.index}</td>
+                                  <td className="px-2 py-1">{shard.shard}</td>
+                                  <td className="px-2 py-1">{shard.fromNode}</td>
+                                  <td className="px-2 py-1">{shard.toNode}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        ) : (
+                          <div className="text-muted-foreground px-2 py-1">Нет перемещаемых шардов</div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </AccordionContent>
+              </AccordionItem>
+              <AccordionItem value="initializing">
+                <AccordionTrigger>Инициализируемые шарды</AccordionTrigger>
+                <AccordionContent>
+                  <div className="flex justify-end mb-2">
+                    <Button variant="outline" onClick={fetchInitializingShards} disabled={initializingLoading}>
+                      <RefreshCw className="mr-2 h-4 w-4" />
+                      Обновить
+                    </Button>
+                  </div>
+                  {initializingLoading ? (
+                    <div className="metric-card">Загрузка инициализируемых шардов...</div>
+                  ) : initializingError ? (
+                    <div className="metric-card text-red-500">{initializingError}</div>
+                  ) : (
+                    <div className="metric-card">
+                      <div className="overflow-x-auto">
+                        {initializingShards.length > 0 ? (
+                          <table className="min-w-full text-sm">
+                            <thead>
+                              <tr>
+                                <th className="px-2 py-1 text-left">Индекс</th>
+                                <th className="px-2 py-1 text-left">Шард</th>
+                                <th className="px-2 py-1 text-left">Нода</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {initializingShards.map((shard, idx) => (
+                                <tr key={idx}>
+                                  <td className="px-2 py-1">{shard.index}</td>
+                                  <td className="px-2 py-1">{shard.shard}</td>
+                                  <td className="px-2 py-1">{shard.node}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        ) : (
+                          <div className="text-muted-foreground px-2 py-1">Нет инициализируемых шардов</div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </AccordionContent>
+              </AccordionItem>
+              <AccordionItem value="unassigned">
+                <AccordionTrigger>Неназначенные шарды</AccordionTrigger>
+                <AccordionContent>
+                  <div className="flex justify-end mb-2">
+                    <Button variant="outline" onClick={fetchUnassignedShards} disabled={unassignedLoading}>
+                      <RefreshCw className="mr-2 h-4 w-4" />
+                      Обновить
+                    </Button>
+                  </div>
+                  {unassignedLoading ? (
+                    <div className="metric-card">Загрузка неназначенных шардов...</div>
+                  ) : unassignedError ? (
+                    <div className="metric-card text-red-500">Ошибка загрузки неназначенных шардов</div>
+                  ) : (
+                    <div className="metric-card">
+                      {unassignedShards.length > 0 ? (
+                        <div className="space-y-2">
+                          {unassignedShards.map((shard, index) => (
+                            <div key={index} className="text-sm">
+                              <span className="font-medium">{shard.index}</span>
+                              <span className="text-muted-foreground"> (шард {shard.shard})</span>
+                              {shard.reason && (
+                                <span className="text-muted-foreground"> - {shard.reason}</span>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="text-muted-foreground">Нет неназначенных шардов</div>
+                      )}
+                    </div>
+                  )}
+                </AccordionContent>
+              </AccordionItem>
+            </Accordion>
+            {/* Snapshots */}
+            <Accordion type="multiple" value={openAccordionSnapshots} onValueChange={v => { setOpenAccordionSnapshots(v); localStorage.setItem('openAccordionSnapshots', JSON.stringify(v)); }}>
+              <AccordionItem value="snapshots">
+                <AccordionTrigger>Снапшоты</AccordionTrigger>
+                <AccordionContent>
+                  <div className="flex items-center gap-2 mb-2">
+                    <input
+                      type="text"
+                      className="border rounded px-2 py-1 text-xs bg-background text-foreground"
+                      placeholder="Поиск по имени снапшота"
+                      value={snapshotSearch}
+                      onChange={e => setSnapshotSearch(e.target.value)}
+                      style={{ minWidth: 200 }}
+                    />
+                    <Button variant="outline" onClick={fetchSnapshots} disabled={snapshotsLoading}>
+                      <RefreshCw className="mr-2 h-4 w-4" />
+                      Обновить
+                    </Button>
+                  </div>
+                  {snapshotsLoading ? (
+                    <div>Загрузка снапшотов...</div>
+                  ) : snapshotsError ? (
+                    <div className="text-red-500">{snapshotsError}</div>
+                  ) : snapshots && typeof snapshots === 'string' ? (
+                    (() => {
+                      const lines = snapshots.trim().split('\n');
+                      if (lines.length < 2) return <div className="text-muted-foreground">Нет данных о снапшотах</div>;
+                      const headers = lines[0].split(/\s+/);
+                      const rows = lines.slice(1).map(line => line.split(/\s+/));
+                      const filteredRows = rows.filter(row => !snapshotSearch || row[0]?.includes(snapshotSearch));
+                      return (
+                        <div className="bg-muted p-2 rounded overflow-x-auto">
+                          <table className="min-w-full text-xs">
+                            <thead>
+                              <tr>
+                                {headers.map((h, i) => <th key={i} className="px-2 py-1 text-left">{h}</th>)}
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {filteredRows.map((row, idx) => (
+                                <tr key={idx}>
+                                  {row.map((cell, i) => <td key={i} className="px-2 py-1">{cell}</td>)}
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      );
+                    })()
+                  ) : (
+                    <div className="text-muted-foreground">Нет данных о снапшотах</div>
+                  )}
+                </AccordionContent>
+              </AccordionItem>
+            </Accordion>
+          </div>
+        </TabsContent>
+        <TabsContent value="debug">
+          <div className="flex-grow p-6 space-y-6">
+            {/* Thread Pool */}
+            <div className="metric-card mt-4">
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="font-medium">Thread Pool</h3>
+                <Button variant="outline" onClick={fetchThreadPools} disabled={threadPoolsLoading}>
                   <RefreshCw className="mr-2 h-4 w-4" />
                   Обновить
                 </Button>
               </div>
-              {hotThreadsLoading ? (
-                <div>Загрузка hot threads...</div>
-              ) : hotThreadsError ? (
-                <div className="text-red-500">{hotThreadsError}</div>
-              ) : hotThreads ? (
-                <pre className="text-xs bg-muted p-2 rounded overflow-x-auto max-h-96 whitespace-pre-wrap">{hotThreads}</pre>
+              {threadPoolsLoading ? (
+                <div>Загрузка thread pool...</div>
+              ) : threadPoolsError ? (
+                <div className="text-red-500">{threadPoolsError}</div>
               ) : (
-                <div className="text-muted-foreground">Нет данных о hot threads</div>
+                <Accordion type="multiple" value={openAccordionThreadPool} onValueChange={v => { setOpenAccordionThreadPool(v); localStorage.setItem('openAccordionThreadPool', JSON.stringify(v)); }}>
+                  {threadPools.map((node: any) => {
+                    const sort = threadSort[node.nodeId] || {field: 'name', order: 'asc'};
+                    const sortedPools = [...node.pools].sort((a, b) => {
+                      let aValue = a[sort.field], bValue = b[sort.field];
+                      if (typeof aValue === 'string') aValue = aValue.toLowerCase();
+                      if (typeof bValue === 'string') bValue = bValue.toLowerCase();
+                      if (aValue === bValue) return 0;
+                      if (sort.order === 'asc') return aValue > bValue ? 1 : -1;
+                      return aValue < bValue ? 1 : -1;
+                    });
+                    const handleSort = (field: string) => {
+                      const newSort = {
+                        ...threadSort,
+                        [node.nodeId]: {
+                          field,
+                          order: sort.field === field ? (sort.order === 'asc' ? 'desc' : 'asc') : 'desc',
+                        }
+                      };
+                      setThreadSort(newSort);
+                      localStorage.setItem('threadSort', JSON.stringify(newSort));
+                    };
+                    const open = openAccordionThreadPool[node.nodeId] || false;
+                    const toggle = () => {
+                      const newState = {
+                        ...openAccordionThreadPool,
+                        [node.nodeId]: !openAccordionThreadPool[node.nodeId]
+                      };
+                      setOpenAccordionThreadPool(newState);
+                      localStorage.setItem('openAccordionThreadPool', JSON.stringify(newState));
+                    };
+                    return (
+                      <div key={node.nodeId} className="mb-2">
+                        <button
+                          className="text-left font-semibold mb-1 focus:outline-none hover:underline"
+                          onClick={toggle}
+                        >
+                          {open ? '▼' : '►'} {node.nodeName}
+                        </button>
+                        {open && (
+                          <div className="bg-muted p-2 rounded overflow-x-auto">
+                            <table className="min-w-full text-xs">
+                              <thead>
+                                <tr>
+                                  <th className="px-2 py-1 text-left cursor-pointer" onClick={() => handleSort('name')}>Pool {sort.field === 'name' ? (sort.order === 'asc' ? '▲' : '▼') : ''}</th>
+                                  <th className="px-2 py-1 text-left cursor-pointer" onClick={() => handleSort('active')}>Active {sort.field === 'active' ? (sort.order === 'asc' ? '▲' : '▼') : ''}</th>
+                                  <th className="px-2 py-1 text-left cursor-pointer" onClick={() => handleSort('queue')}>Queue {sort.field === 'queue' ? (sort.order === 'asc' ? '▲' : '▼') : ''}</th>
+                                  <th className="px-2 py-1 text-left cursor-pointer" onClick={() => handleSort('rejected')}>Rejected {sort.field === 'rejected' ? (sort.order === 'asc' ? '▲' : '▼') : ''}</th>
+                                  <th className="px-2 py-1 text-left cursor-pointer" onClick={() => handleSort('completed')}>Completed {sort.field === 'completed' ? (sort.order === 'asc' ? '▲' : '▼') : ''}</th>
+                                  <th className="px-2 py-1 text-left cursor-pointer" onClick={() => handleSort('threads')}>Threads {sort.field === 'threads' ? (sort.order === 'asc' ? '▲' : '▼') : ''}</th>
+                                  <th className="px-2 py-1 text-left cursor-pointer" onClick={() => handleSort('largest')}>Largest {sort.field === 'largest' ? (sort.order === 'asc' ? '▲' : '▼') : ''}</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {sortedPools.map((pool, idx) => (
+                                  <tr key={pool.name + idx}>
+                                    <td className="px-2 py-1 font-medium">{pool.name}</td>
+                                    <td className="px-2 py-1">{pool.active}</td>
+                                    <td className="px-2 py-1">{pool.queue}</td>
+                                    <td className="px-2 py-1">{pool.rejected}</td>
+                                    <td className="px-2 py-1">{pool.completed}</td>
+                                    <td className="px-2 py-1">{pool.threads}</td>
+                                    <td className="px-2 py-1">{pool.largest}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </Accordion>
               )}
-            </AccordionContent>
-          </AccordionItem>
-
-          <AccordionItem value="pending-tasks">
-            <AccordionTrigger>Очередь задач</AccordionTrigger>
-            <AccordionContent>
-              <div className="flex justify-end mb-2">
-                <Button variant="outline" onClick={fetchPendingTasks} disabled={pendingTasksLoading}>
-                  <RefreshCw className="mr-2 h-4 w-4" />
-                  Обновить
-                </Button>
-              </div>
-              {pendingTasksLoading ? (
-                <div>Загрузка очереди задач...</div>
-              ) : pendingTasksError ? (
-                <div className="text-red-500">{pendingTasksError}</div>
-              ) : pendingTasks && pendingTasks.length > 0 ? (
-                <div className="overflow-x-auto">
-                  <table className="min-w-full text-xs">
-                    <thead>
-                      <tr>
-                        <th className="px-2 py-1 text-left">#</th>
-                        <th className="px-2 py-1 text-left">Время в очереди</th>
-                        <th className="px-2 py-1 text-left">Приоритет</th>
-                        <th className="px-2 py-1 text-left">Источник</th>
-                        <th className="px-2 py-1 text-left">Описание</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {pendingTasks.map((task, idx) => (
-                        <tr key={idx}>
-                          <td className="px-2 py-1">{task.insert_order ?? idx + 1}</td>
-                          <td className="px-2 py-1">{task.time_in_queue || (task.time_in_queue_millis ? (task.time_in_queue_millis / 1000).toFixed(2) + ' сек' : '-')}</td>
-                          <td className="px-2 py-1">{task.priority}</td>
-                          <td className="px-2 py-1">{task.source}</td>
-                          <td className="px-2 py-1">{task.task || task.description || '-'}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              ) : (
-                <div className="text-muted-foreground">Нет задач в очереди</div>
-              )}
-            </AccordionContent>
-          </AccordionItem>
-
-          <AccordionItem value="indexing-stats-indices">
-            <AccordionTrigger>Время индексации по индексам</AccordionTrigger>
-            <AccordionContent>
-              <div className="flex items-center gap-2 mb-2">
-                <input
-                  type="text"
-                  className="border rounded px-2 py-1 text-xs bg-background text-foreground"
-                  placeholder="Введите имя индекса"
-                  value={selectedIndex}
-                  onChange={e => setSelectedIndex(e.target.value)}
-                  onKeyDown={e => { if (e.key === 'Enter') fetchSingleIndexStats(); }}
-                  style={{ minWidth: 200 }}
-                />
-                <Button variant="outline" onClick={fetchSingleIndexStats} disabled={!selectedIndex || singleIndexStatsLoading}>
-                  <RefreshCw className="mr-2 h-4 w-4" />
-                  Обновить
-                </Button>
-              </div>
-              {singleIndexStatsLoading ? (
-                <div>Загрузка...</div>
-              ) : singleIndexStatsError ? (
-                <div className="text-red-500">{singleIndexStatsError}</div>
-              ) : singleIndexStats && singleIndexStats.indices && singleIndexStats.indices[selectedIndex] ? (
-                (() => {
-                  const stats = singleIndexStats.indices[selectedIndex];
-                  const total = stats.total?.indexing || {};
-                  return (
+            </div>
+            {/* Hot Threads */}
+            <Accordion type="multiple" value={openAccordionHotThreads} onValueChange={v => { setOpenAccordionHotThreads(v); localStorage.setItem('openAccordionHotThreads', JSON.stringify(v)); }}>
+              <AccordionItem value="hot-threads">
+                <AccordionTrigger>Hot Threads</AccordionTrigger>
+                <AccordionContent>
+                  <div className="flex justify-end mb-2">
+                    <Button variant="outline" onClick={fetchHotThreads} disabled={hotThreadsLoading}>
+                      <RefreshCw className="mr-2 h-4 w-4" />
+                      Обновить
+                    </Button>
+                  </div>
+                  {hotThreadsLoading ? (
+                    <div>Загрузка hot threads...</div>
+                  ) : hotThreadsError ? (
+                    <div className="text-red-500">{hotThreadsError}</div>
+                  ) : hotThreads ? (
+                    <pre className="text-xs bg-muted p-2 rounded overflow-x-auto max-h-96 whitespace-pre-wrap">{hotThreads}</pre>
+                  ) : (
+                    <div className="text-muted-foreground">Нет данных о hot threads</div>
+                  )}
+                </AccordionContent>
+              </AccordionItem>
+            </Accordion>
+            {/* Очередь задач */}
+            <Accordion type="multiple" value={openAccordionPendingTasks} onValueChange={v => { setOpenAccordionPendingTasks(v); localStorage.setItem('openAccordionPendingTasks', JSON.stringify(v)); }}>
+              <AccordionItem value="pending-tasks">
+                <AccordionTrigger>Очередь задач</AccordionTrigger>
+                <AccordionContent>
+                  <div className="flex justify-end mb-2">
+                    <Button variant="outline" onClick={fetchPendingTasks} disabled={pendingTasksLoading}>
+                      <RefreshCw className="mr-2 h-4 w-4" />
+                      Обновить
+                    </Button>
+                  </div>
+                  {pendingTasksLoading ? (
+                    <div>Загрузка очереди задач...</div>
+                  ) : pendingTasksError ? (
+                    <div className="text-red-500">{pendingTasksError}</div>
+                  ) : pendingTasks && pendingTasks.length > 0 ? (
                     <div className="overflow-x-auto">
                       <table className="min-w-full text-xs">
                         <thead>
                           <tr>
-                            <th className="px-2 py-1 text-left">Индекс</th>
-                            <th className="px-2 py-1 text-left">index_total</th>
-                            <th className="px-2 py-1 text-left">index_time_in_millis</th>
-                            <th className="px-2 py-1 text-left">index_failed</th>
-                            <th className="px-2 py-1 text-left">delete_total</th>
-                            <th className="px-2 py-1 text-left">delete_time_in_millis</th>
-                            <th className="px-2 py-1 text-left">noop_update_total</th>
-                            <th className="px-2 py-1 text-left">is_throttled</th>
-                            <th className="px-2 py-1 text-left">throttle_time_in_millis</th>
-                            <th className="px-2 py-1 text-left">write_load</th>
+                            <th className="px-2 py-1 text-left">#</th>
+                            <th className="px-2 py-1 text-left">Время в очереди</th>
+                            <th className="px-2 py-1 text-left">Приоритет</th>
+                            <th className="px-2 py-1 text-left">Источник</th>
+                            <th className="px-2 py-1 text-left">Описание</th>
                           </tr>
                         </thead>
                         <tbody>
-                          <tr>
-                            <td className="px-2 py-1 font-medium">{selectedIndex}</td>
-                            <td className="px-2 py-1">{total.index_total ?? '-'}</td>
-                            <td className="px-2 py-1">{total.index_time_in_millis !== undefined ? (total.index_time_in_millis / 1000).toLocaleString(undefined, {maximumFractionDigits: 2}) + ' сек' : '-'}</td>
-                            <td className="px-2 py-1">{total.index_failed ?? '-'}</td>
-                            <td className="px-2 py-1">{total.delete_total ?? '-'}</td>
-                            <td className="px-2 py-1">{total.delete_time_in_millis !== undefined ? (total.delete_time_in_millis / 1000).toLocaleString(undefined, {maximumFractionDigits: 2}) + ' сек' : '-'}</td>
-                            <td className="px-2 py-1">{total.noop_update_total ?? '-'}</td>
-                            <td className="px-2 py-1">{total.is_throttled !== undefined ? (total.is_throttled ? 'Да' : 'Нет') : '-'}</td>
-                            <td className="px-2 py-1">{total.throttle_time_in_millis !== undefined ? (total.throttle_time_in_millis / 1000).toLocaleString(undefined, {maximumFractionDigits: 2}) + ' сек' : '-'}</td>
-                            <td className="px-2 py-1">{total.write_load ?? '-'}</td>
-                          </tr>
-                        </tbody>
-                      </table>
-                    </div>
-                  );
-                })()
-              ) : (
-                <div className="text-muted-foreground">Нет данных</div>
-              )}
-            </AccordionContent>
-          </AccordionItem>
-
-          <AccordionItem value="indexing-stats-nodes">
-            <AccordionTrigger>Время индексации по узлам</AccordionTrigger>
-            <AccordionContent>
-              <div className="flex justify-end mb-2">
-                <Button variant="outline" onClick={fetchNodesIndexingStats} disabled={nodesIndexingStatsLoading}>
-                  <RefreshCw className="mr-2 h-4 w-4" />
-                  Обновить
-                </Button>
-              </div>
-              {nodesIndexingStatsLoading ? (
-                <div>Загрузка...</div>
-              ) : nodesIndexingStatsError ? (
-                <div className="text-red-500">{nodesIndexingStatsError}</div>
-              ) : nodesIndexingStats && nodesIndexingStats.nodes ? (
-                <div className="overflow-x-auto">
-                  <table className="min-w-full text-xs">
-                    <thead>
-                      <tr>
-                        <th className="px-2 py-1 text-left">Узел</th>
-                        <th className="px-2 py-1 text-left">Время индексации</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {Object.entries(nodesIndexingStats.nodes).map(([nodeId, node]: any) => (
-                        <tr key={nodeId}>
-                          <td className="px-2 py-1 font-medium">{node.name || nodeId}</td>
-                          <td className="px-2 py-1">{node.indices?.indexing?.index_time_in_millis ? (node.indices.indexing.index_time_in_millis / 1000).toLocaleString(undefined, {maximumFractionDigits: 2}) + ' сек' : '-'}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              ) : (
-                <div className="text-muted-foreground">Нет данных</div>
-              )}
-            </AccordionContent>
-          </AccordionItem>
-
-          <AccordionItem value="relocating">
-            <AccordionTrigger>Перемещаемые шарды</AccordionTrigger>
-            <AccordionContent>
-              <div className="flex justify-end mb-2">
-                <Button variant="outline" onClick={fetchRelocatingShards} disabled={relocatingLoading}>
-                  <RefreshCw className="mr-2 h-4 w-4" />
-                  Обновить
-                </Button>
-              </div>
-              {relocatingLoading ? (
-                <div className="metric-card">Загрузка перемещаемых шардов...</div>
-              ) : relocatingError ? (
-                <div className="metric-card text-red-500">{relocatingError}</div>
-              ) : (
-                <div className="metric-card">
-                  <div className="overflow-x-auto">
-                    {relocatingShards.length > 0 ? (
-                      <table className="min-w-full text-sm">
-                        <thead>
-                          <tr>
-                            <th className="px-2 py-1 text-left">Индекс</th>
-                            <th className="px-2 py-1 text-left">Шард</th>
-                            <th className="px-2 py-1 text-left">Откуда</th>
-                            <th className="px-2 py-1 text-left">Куда</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {relocatingShards.map((shard, idx) => (
+                          {pendingTasks.map((task, idx) => (
                             <tr key={idx}>
-                              <td className="px-2 py-1">{shard.index}</td>
-                              <td className="px-2 py-1">{shard.shard}</td>
-                              <td className="px-2 py-1">{shard.fromNode}</td>
-                              <td className="px-2 py-1">{shard.toNode}</td>
+                              <td className="px-2 py-1">{task.insert_order ?? idx + 1}</td>
+                              <td className="px-2 py-1">{task.time_in_queue || (task.time_in_queue_millis ? (task.time_in_queue_millis / 1000).toFixed(2) + ' сек' : '-')}</td>
+                              <td className="px-2 py-1">{task.priority}</td>
+                              <td className="px-2 py-1">{task.source}</td>
+                              <td className="px-2 py-1">{task.task || task.description || '-'}</td>
                             </tr>
                           ))}
                         </tbody>
                       </table>
-                    ) : (
-                      <div className="text-muted-foreground px-2 py-1">Нет перемещаемых шардов</div>
-                    )}
-                  </div>
-                </div>
-              )}
-            </AccordionContent>
-          </AccordionItem>
-
-          <AccordionItem value="initializing">
-            <AccordionTrigger>Инициализируемые шарды</AccordionTrigger>
-            <AccordionContent>
-              <div className="flex justify-end mb-2">
-                <Button variant="outline" onClick={fetchInitializingShards} disabled={initializingLoading}>
-                  <RefreshCw className="mr-2 h-4 w-4" />
-                  Обновить
-                </Button>
-              </div>
-              {initializingLoading ? (
-                <div className="metric-card">Загрузка инициализируемых шардов...</div>
-              ) : initializingError ? (
-                <div className="metric-card text-red-500">{initializingError}</div>
-              ) : (
-                <div className="metric-card">
-                  <div className="overflow-x-auto">
-                    {initializingShards.length > 0 ? (
-                      <table className="min-w-full text-sm">
-                        <thead>
-                          <tr>
-                            <th className="px-2 py-1 text-left">Индекс</th>
-                            <th className="px-2 py-1 text-left">Шард</th>
-                            <th className="px-2 py-1 text-left">Нода</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {initializingShards.map((shard, idx) => (
-                            <tr key={idx}>
-                              <td className="px-2 py-1">{shard.index}</td>
-                              <td className="px-2 py-1">{shard.shard}</td>
-                              <td className="px-2 py-1">{shard.node}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    ) : (
-                      <div className="text-muted-foreground px-2 py-1">Нет инициализируемых шардов</div>
-                    )}
-                  </div>
-                </div>
-              )}
-            </AccordionContent>
-          </AccordionItem>
-
-          <AccordionItem value="unassigned">
-            <AccordionTrigger>Неназначенные шарды</AccordionTrigger>
-            <AccordionContent>
-              <div className="flex justify-end mb-2">
-                <Button variant="outline" onClick={fetchUnassignedShards} disabled={unassignedLoading}>
-                  <RefreshCw className="mr-2 h-4 w-4" />
-                  Обновить
-                </Button>
-              </div>
-              {unassignedLoading ? (
-                <div className="metric-card">Загрузка неназначенных шардов...</div>
-              ) : unassignedError ? (
-                <div className="metric-card text-red-500">Ошибка загрузки неназначенных шардов</div>
-              ) : (
-                <div className="metric-card">
-                  {unassignedShards.length > 0 ? (
-                    <div className="space-y-2">
-                      {unassignedShards.map((shard, index) => (
-                        <div key={index} className="text-sm">
-                          <span className="font-medium">{shard.index}</span>
-                          <span className="text-muted-foreground"> (шард {shard.shard})</span>
-                          {shard.reason && (
-                            <span className="text-muted-foreground"> - {shard.reason}</span>
-                          )}
-                        </div>
-                      ))}
                     </div>
                   ) : (
-                    <div className="text-muted-foreground">Нет неназначенных шардов</div>
+                    <div className="text-muted-foreground">Нет задач в очереди</div>
                   )}
-                </div>
-              )}
-            </AccordionContent>
-          </AccordionItem>
-
-          <AccordionItem value="active-tasks">
-            <AccordionTrigger>Активные задачи</AccordionTrigger>
-            <AccordionContent>
-              <div className="flex justify-end mb-2">
-                <Button variant="outline" onClick={fetchActiveTasks} disabled={activeTasksLoading}>
-                  <RefreshCw className="mr-2 h-4 w-4" />
-                  Обновить
-                </Button>
-              </div>
-              {activeTasksLoading ? (
-                <div>Загрузка активных задач...</div>
-              ) : activeTasksError ? (
-                <div className="text-red-500">{activeTasksError}</div>
-              ) : activeTasks && activeTasks.nodes ? (
-                (() => {
-                  // Собираем все задачи в массив
-                  let tasks: any[] = [];
-                  Object.entries(activeTasks.nodes).forEach(([nodeId, node]: any) => {
-                    Object.entries(node.tasks || {}).forEach(([taskId, task]: any) => {
-                      tasks.push({
-                        node: node.name || nodeId,
-                        taskId,
-                        action: task.action,
-                        description: task.description || '-',
-                        runningTime: task.running_time_in_nanos ? (task.running_time_in_nanos / 1e9) : 0,
-                        status: task.status ? JSON.stringify(task.status) : '-',
-                      });
-                    });
-                  });
-                  // Сортировка
-                  const {field, order} = activeTasksSort;
-                  tasks = tasks.sort((a, b) => {
-                    let aValue = a[field], bValue = b[field];
-                    if (typeof aValue === 'string') aValue = aValue.toLowerCase();
-                    if (typeof bValue === 'string') bValue = bValue.toLowerCase();
-                    if (aValue === bValue) return 0;
-                    if (order === 'asc') return aValue > bValue ? 1 : -1;
-                    return aValue < bValue ? 1 : -1;
-                  });
-                  const handleSort = (field: string) => {
-                    setActiveTasksSort(prev => ({
-                      field,
-                      order: prev.field === field ? (prev.order === 'asc' ? 'desc' : 'asc') : 'desc',
-                    }));
-                  };
-                  return (
-                    <div className="bg-muted p-2 rounded overflow-x-auto">
-                      <table className="min-w-full text-xs">
-                        <thead>
-                          <tr>
-                            <th className="px-2 py-1 text-left cursor-pointer" onClick={() => handleSort('node')}>Узел {activeTasksSort.field === 'node' ? (activeTasksSort.order === 'asc' ? '▲' : '▼') : ''}</th>
-                            <th className="px-2 py-1 text-left cursor-pointer" onClick={() => handleSort('taskId')}>ID задачи {activeTasksSort.field === 'taskId' ? (activeTasksSort.order === 'asc' ? '▲' : '▼') : ''}</th>
-                            <th className="px-2 py-1 text-left cursor-pointer" onClick={() => handleSort('action')}>Тип {activeTasksSort.field === 'action' ? (activeTasksSort.order === 'asc' ? '▲' : '▼') : ''}</th>
-                            <th className="px-2 py-1 text-left cursor-pointer" onClick={() => handleSort('description')}>Описание {activeTasksSort.field === 'description' ? (activeTasksSort.order === 'asc' ? '▲' : '▼') : ''}</th>
-                            <th className="px-2 py-1 text-left cursor-pointer" onClick={() => handleSort('runningTime')}>Время выполнения {activeTasksSort.field === 'runningTime' ? (activeTasksSort.order === 'asc' ? '▲' : '▼') : ''}</th>
-                            <th className="px-2 py-1 text-left cursor-pointer" onClick={() => handleSort('status')}>Статус {activeTasksSort.field === 'status' ? (activeTasksSort.order === 'asc' ? '▲' : '▼') : ''}</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {tasks.map((task, idx) => (
-                            <tr key={idx}>
-                              <td className="px-2 py-1">{task.node}</td>
-                              <td className="px-2 py-1">{task.taskId}</td>
-                              <td className="px-2 py-1">{task.action}</td>
-                              <td className="px-2 py-1">{task.description}</td>
-                              <td className="px-2 py-1">{task.runningTime.toFixed(2)} сек</td>
-                              <td className="px-2 py-1" style={{maxWidth: 300, whiteSpace: 'pre-wrap', wordBreak: 'break-all'}}>
-                                {task.status && task.status !== '-' ? (
-                                  <pre className="whitespace-pre-wrap max-w-xs overflow-x-auto">{task.status}</pre>
-                                ) : '-'}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  );
-                })()
-              ) : (
-                <div className="text-muted-foreground">Нет активных задач</div>
-              )}
-            </AccordionContent>
-          </AccordionItem>
-
-          <AccordionItem value="allocation-explain">
-            <AccordionTrigger>Allocation Explain</AccordionTrigger>
-            <AccordionContent>
-              <div className="flex flex-col gap-2 mb-2 md:flex-row md:items-end md:gap-4">
-                <Button variant="outline" onClick={() => fetchAllocation()} disabled={allocationLoading}>
-                  Случайный шард
-                </Button>
-                <input
-                  type="text"
-                  className="border rounded px-2 py-1 text-xs bg-background text-foreground"
-                  placeholder="Индекс"
-                  value={allocIndex}
-                  onChange={e => setAllocIndex(e.target.value)}
-                  style={{ minWidth: 120 }}
-                />
-                <input
-                  type="number"
-                  className="border rounded px-2 py-1 text-xs bg-background text-foreground"
-                  placeholder="Шард"
-                  value={allocShard}
-                  onChange={e => setAllocShard(e.target.value)}
-                  style={{ minWidth: 80 }}
-                />
-                <label className="flex items-center gap-1 text-xs" title="Primary — основной шард, если не отмечено — реплика">
-                  <input
-                    type="checkbox"
-                    checked={allocPrimary}
-                    onChange={e => setAllocPrimary(e.target.checked)}
-                  />
-                  primary
-                </label>
-                <Button
-                  variant="outline"
-                  onClick={() => fetchAllocation({ index: allocIndex, shard: Number(allocShard), primary: allocPrimary })}
-                  disabled={allocationLoading || !allocIndex || allocShard === ''}
-                >
-                  Анализировать конкретный шард
-                </Button>
-              </div>
-              {allocationLoading ? (
-                <div>Загрузка allocation explain...</div>
-              ) : allocationError ? (
-                /400/.test(allocationError)
-                  ? <div className="text-muted-foreground">Нет UNASSIGNED шардов</div>
-                  : <div className="text-red-500">{allocationError}</div>
-              ) : allocation ? (
-                (() => {
-                  const str = typeof allocation === 'string' ? allocation : JSON.stringify(allocation, null, 2);
-                  return <pre className="text-xs bg-muted p-2 rounded overflow-x-auto max-h-96 whitespace-pre-wrap">{str}</pre>;
-                })()
-              ) : (
-                <div className="text-muted-foreground">Нет данных allocation explain</div>
-              )}
-            </AccordionContent>
-          </AccordionItem>
-
-          <AccordionItem value="snapshots">
-            <AccordionTrigger>Снапшоты</AccordionTrigger>
-            <AccordionContent>
-              <div className="flex items-center gap-2 mb-2">
-                <input
-                  type="text"
-                  className="border rounded px-2 py-1 text-xs bg-background text-foreground"
-                  placeholder="Поиск по имени снапшота"
-                  value={snapshotSearch}
-                  onChange={e => setSnapshotSearch(e.target.value)}
-                  style={{ minWidth: 200 }}
-                />
-                <Button variant="outline" onClick={fetchSnapshots} disabled={snapshotsLoading}>
-                  <RefreshCw className="mr-2 h-4 w-4" />
-                  Обновить
-                </Button>
-              </div>
-              {snapshotsLoading ? (
-                <div>Загрузка снапшотов...</div>
-              ) : snapshotsError ? (
-                <div className="text-red-500">{snapshotsError}</div>
-              ) : snapshots && typeof snapshots === 'string' ? (
-                (() => {
-                  const lines = snapshots.trim().split('\n');
-                  if (lines.length < 2) return <div className="text-muted-foreground">Нет данных о снапшотах</div>;
-                  const headers = lines[0].split(/\s+/);
-                  const rows = lines.slice(1).map(line => line.split(/\s+/));
-                  const filteredRows = rows.filter(row => !snapshotSearch || row[0]?.includes(snapshotSearch));
-                  return (
-                    <div className="bg-muted p-2 rounded overflow-x-auto">
-                      <table className="min-w-full text-xs">
-                        <thead>
-                          <tr>
-                            {headers.map((h, i) => <th key={i} className="px-2 py-1 text-left">{h}</th>)}
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {filteredRows.map((row, idx) => (
-                            <tr key={idx}>
-                              {row.map((cell, i) => <td key={i} className="px-2 py-1">{cell}</td>)}
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  );
-                })()
-              ) : (
-                <div className="text-muted-foreground">Нет данных о снапшотах</div>
-              )}
-            </AccordionContent>
-          </AccordionItem>
-
-          <AccordionItem value="snapshot-status">
-            <AccordionTrigger>Статус восстановления снапшота</AccordionTrigger>
-            <AccordionContent>
-              <div className="flex items-center gap-2 mb-2">
-                <input
-                  type="text"
-                  className="border rounded px-2 py-1 text-xs bg-background text-foreground"
-                  placeholder="Имя репозитория"
-                  value={snapshotRepo}
-                  onChange={e => setSnapshotRepo(e.target.value)}
-                  style={{ minWidth: 200 }}
-                />
-                <Button variant="outline" onClick={fetchSnapshotStatus} disabled={!snapshotRepo || snapshotStatusLoading}>
-                  <RefreshCw className="mr-2 h-4 w-4" />
-                  Обновить
-                </Button>
-              </div>
-              {snapshotStatusLoading ? (
-                <div>Загрузка статуса восстановления...</div>
-              ) : snapshotStatusError ? (
-                <div className="text-red-500">{snapshotStatusError}</div>
-              ) : snapshotStatus ? (
-                <pre className="text-xs bg-muted p-2 rounded overflow-x-auto max-h-96 whitespace-pre-wrap">{typeof snapshotStatus === 'string' ? snapshotStatus : JSON.stringify(snapshotStatus, null, 2)}</pre>
-              ) : (
-                <div className="text-muted-foreground">Нет данных о статусе восстановления</div>
-              )}
-            </AccordionContent>
-          </AccordionItem>
-        </Accordion>
-      </div>
+                </AccordionContent>
+              </AccordionItem>
+            </Accordion>
+            {/* Время индексации по индексам */}
+            <Accordion type="multiple" value={openAccordionIndexingStatsIndices} onValueChange={v => { setOpenAccordionIndexingStatsIndices(v); localStorage.setItem('openAccordionIndexingStatsIndices', JSON.stringify(v)); }}>
+              <AccordionItem value="indexing-stats-indices">
+                <AccordionTrigger>Время индексации по индексам</AccordionTrigger>
+                <AccordionContent>
+                  <div className="flex items-center gap-2 mb-2">
+                    <input
+                      type="text"
+                      className="border rounded px-2 py-1 text-xs bg-background text-foreground"
+                      placeholder="Введите имя индекса"
+                      value={selectedIndex}
+                      onChange={e => setSelectedIndex(e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter') fetchSingleIndexStats(); }}
+                      style={{ minWidth: 200 }}
+                    />
+                    <Button variant="outline" onClick={fetchSingleIndexStats} disabled={!selectedIndex || singleIndexStatsLoading}>
+                      <RefreshCw className="mr-2 h-4 w-4" />
+                      Обновить
+                    </Button>
+                  </div>
+                  {singleIndexStatsLoading ? (
+                    <div>Загрузка...</div>
+                  ) : singleIndexStatsError ? (
+                    <div className="text-red-500">{singleIndexStatsError}</div>
+                  ) : singleIndexStats && singleIndexStats.indices && singleIndexStats.indices[selectedIndex] ? (
+                    (() => {
+                      const stats = singleIndexStats.indices[selectedIndex];
+                      const total = stats.total?.indexing || {};
+                      return (
+                        <div className="overflow-x-auto">
+                          <table className="min-w-full text-xs">
+                            <thead>
+                              <tr>
+                                <th className="px-2 py-1 text-left">Индекс</th>
+                                <th className="px-2 py-1 text-left">index_total</th>
+                                <th className="px-2 py-1 text-left">index_time_in_millis</th>
+                                <th className="px-2 py-1 text-left">index_failed</th>
+                                <th className="px-2 py-1 text-left">delete_total</th>
+                                <th className="px-2 py-1 text-left">delete_time_in_millis</th>
+                                <th className="px-2 py-1 text-left">noop_update_total</th>
+                                <th className="px-2 py-1 text-left">is_throttled</th>
+                                <th className="px-2 py-1 text-left">throttle_time_in_millis</th>
+                                <th className="px-2 py-1 text-left">write_load</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              <tr>
+                                <td className="px-2 py-1 font-medium">{selectedIndex}</td>
+                                <td className="px-2 py-1">{total.index_total ?? '-'}</td>
+                                <td className="px-2 py-1">{total.index_time_in_millis !== undefined ? (total.index_time_in_millis / 1000).toLocaleString(undefined, {maximumFractionDigits: 2}) + ' сек' : '-'}</td>
+                                <td className="px-2 py-1">{total.index_failed ?? '-'}</td>
+                                <td className="px-2 py-1">{total.delete_total ?? '-'}</td>
+                                <td className="px-2 py-1">{total.delete_time_in_millis !== undefined ? (total.delete_time_in_millis / 1000).toLocaleString(undefined, {maximumFractionDigits: 2}) + ' сек' : '-'}</td>
+                                <td className="px-2 py-1">{total.noop_update_total ?? '-'}</td>
+                                <td className="px-2 py-1">{total.is_throttled !== undefined ? (total.is_throttled ? 'Да' : 'Нет') : '-'}</td>
+                                <td className="px-2 py-1">{total.throttle_time_in_millis !== undefined ? (total.throttle_time_in_millis / 1000).toLocaleString(undefined, {maximumFractionDigits: 2}) + ' сек' : '-'}</td>
+                                <td className="px-2 py-1">{total.write_load ?? '-'}</td>
+                              </tr>
+                            </tbody>
+                          </table>
+                        </div>
+                      );
+                    })()
+                  ) : (
+                    <div className="text-muted-foreground">Нет данных</div>
+                  )}
+                </AccordionContent>
+              </AccordionItem>
+            </Accordion>
+            {/* Allocation Explain */}
+            <Accordion type="multiple" value={openAccordionAllocationExplain} onValueChange={v => { setOpenAccordionAllocationExplain(v); localStorage.setItem('openAccordionAllocationExplain', JSON.stringify(v)); }}>
+              <AccordionItem value="allocation-explain">
+                <AccordionTrigger>Allocation Explain</AccordionTrigger>
+                <AccordionContent>
+                  <div className="flex flex-col gap-2 mb-2 md:flex-row md:items-end md:gap-4">
+                    <Button variant="outline" onClick={() => fetchAllocation()} disabled={allocationLoading}>
+                      Случайный шард
+                    </Button>
+                    <input
+                      type="text"
+                      className="border rounded px-2 py-1 text-xs bg-background text-foreground"
+                      placeholder="Индекс"
+                      value={allocIndex}
+                      onChange={e => setAllocIndex(e.target.value)}
+                      style={{ minWidth: 120 }}
+                    />
+                    <input
+                      type="number"
+                      className="border rounded px-2 py-1 text-xs bg-background text-foreground"
+                      placeholder="Шард"
+                      value={allocShard}
+                      onChange={e => setAllocShard(e.target.value)}
+                      style={{ minWidth: 80 }}
+                    />
+                    <label className="flex items-center gap-1 text-xs" title="Primary — основной шард, если не отмечено — реплика">
+                      <input
+                        type="checkbox"
+                        checked={allocPrimary}
+                        onChange={e => setAllocPrimary(e.target.checked)}
+                      />
+                      primary
+                    </label>
+                    <Button
+                      variant="outline"
+                      onClick={() => fetchAllocation({ index: allocIndex, shard: Number(allocShard), primary: allocPrimary })}
+                      disabled={allocationLoading || !allocIndex || allocShard === ''}
+                    >
+                      Анализировать конкретный шард
+                    </Button>
+                  </div>
+                  {allocationLoading ? (
+                    <div>Загрузка allocation explain...</div>
+                  ) : allocationError ? (
+                    /400/.test(allocationError)
+                      ? <div className="text-muted-foreground">Нет UNASSIGNED шардов</div>
+                      : <div className="text-red-500">{allocationError}</div>
+                  ) : allocation ? (
+                    (() => {
+                      const str = typeof allocation === 'string' ? allocation : JSON.stringify(allocation, null, 2);
+                      return <pre className="text-xs bg-muted p-2 rounded overflow-x-auto max-h-96 whitespace-pre-wrap">{str}</pre>;
+                    })()
+                  ) : (
+                    <div className="text-muted-foreground">Нет данных allocation explain</div>
+                  )}
+                </AccordionContent>
+              </AccordionItem>
+            </Accordion>
+            {/* Статус восстановления снапшота */}
+            <Accordion type="multiple" value={openAccordionSnapshotStatus} onValueChange={v => { setOpenAccordionSnapshotStatus(v); localStorage.setItem('openAccordionSnapshotStatus', JSON.stringify(v)); }}>
+              <AccordionItem value="snapshot-status">
+                <AccordionTrigger>Статус восстановления снапшота</AccordionTrigger>
+                <AccordionContent>
+                  <div className="flex items-center gap-2 mb-2">
+                    <input
+                      type="text"
+                      className="border rounded px-2 py-1 text-xs bg-background text-foreground"
+                      placeholder="Имя репозитория"
+                      value={snapshotRepo}
+                      onChange={e => setSnapshotRepo(e.target.value)}
+                      style={{ minWidth: 200 }}
+                    />
+                    <Button variant="outline" onClick={fetchSnapshotStatus} disabled={!snapshotRepo || snapshotStatusLoading}>
+                      <RefreshCw className="mr-2 h-4 w-4" />
+                      Обновить
+                    </Button>
+                  </div>
+                  {snapshotStatusLoading ? (
+                    <div>Загрузка статуса восстановления...</div>
+                  ) : snapshotStatusError ? (
+                    <div className="text-red-500">{snapshotStatusError}</div>
+                  ) : snapshotStatus ? (
+                    <pre className="text-xs bg-muted p-2 rounded overflow-x-auto max-h-96 whitespace-pre-wrap">{typeof snapshotStatus === 'string' ? snapshotStatus : JSON.stringify(snapshotStatus, null, 2)}</pre>
+                  ) : (
+                    <div className="text-muted-foreground">Нет данных о статусе восстановления</div>
+                  )}
+                </AccordionContent>
+              </AccordionItem>
+            </Accordion>
+          </div>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };

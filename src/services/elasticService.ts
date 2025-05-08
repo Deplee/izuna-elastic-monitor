@@ -10,6 +10,7 @@ export interface ClusterHealth {
   status: 'green' | 'yellow' | 'red';
   numberOfNodes: number;
   activeShards: number;
+  activePrimaryShards: number;
   relocatingShards: number;
   initializingShards: number;
   unassignedShards: number;
@@ -183,6 +184,7 @@ class ElasticService {
         status: data.status,
         numberOfNodes: data.number_of_nodes,
         activeShards: data.active_shards,
+        activePrimaryShards: data.active_primary_shards,
         relocatingShards: data.relocating_shards,
         initializingShards: data.initializing_shards,
         unassignedShards: data.unassigned_shards

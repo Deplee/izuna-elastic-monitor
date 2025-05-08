@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { ClusterHealth } from '@/services/elasticService';
@@ -118,6 +117,10 @@ const ClusterHealthCard: React.FC<ClusterHealthCardProps> = ({ health, isLoading
           <div className="flex justify-between text-sm">
             <span>Запущенные шарды:</span>
             <span>{health.activeShards}</span>
+          </div>
+          <div className="flex justify-between text-sm">
+            <span>Активные шарды:</span>
+            <span>{health.activePrimaryShards}</span>
           </div>
           <div className="flex justify-between text-sm">
             <span>Перемещаемые шарды:</span>
