@@ -31,7 +31,7 @@ if [ -n "$DOCKER_COMPOSE_CMD" ]; then
     if [ $? -eq 0 ]; then
         echo "Build stage done."
         echo "Now run "$DOCKER_COMPOSE_CMD up -d""
-        echo "And visit http://your_ip:8080"
+        echo "And visit http://localhost:8080"
         echo "Thanks <3"
     else
         echo "Ошибка при выполнении команды."
