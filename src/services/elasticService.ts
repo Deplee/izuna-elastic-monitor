@@ -576,13 +576,13 @@ class ElasticService {
     }
   }
 
-  async getSnapshotStatus(repo: string): Promise<ElasticApiResponse<any>> {
+  async getSnapshotStatus(repo: string, snapshot: string): Promise<ElasticApiResponse<any>> {
     try {
-      const result = await this.fetchWithAuth<any>(`/_snapshot/${repo}/_status`);
+      const result = await this.fetchWithAuth<any>(`/_snapshot/${repo}/${snapshot}`);
       if (!result.success) return result;
       return { success: true, data: result.data };
     } catch (error) {
-      return { success: false, error: `Ошибка получения статуса восстановления: ${error instanceof Error ? error.message : String(error)}` };
+      return { success: false, error: `Ошибка получения статуса снапшота: ${error instanceof Error ? error.message : String(error)}` };
     }
   }
 

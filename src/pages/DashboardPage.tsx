@@ -130,6 +130,7 @@ const DashboardPage: React.FC = () => {
 
   // --- Snapshot Status ---
   const [snapshotRepo, setSnapshotRepo] = useState(() => localStorage.getItem('snapshotRepo') || '');
+  const [snapshotName, setSnapshotName] = useState(() => localStorage.getItem('snapshotName') || '');
   const [snapshotStatus, setSnapshotStatus] = useState<any>(null);
   const [snapshotStatusLoading, setSnapshotStatusLoading] = useState(false);
   const [snapshotStatusError, setSnapshotStatusError] = useState<string | null>(null);
@@ -482,15 +483,15 @@ const DashboardPage: React.FC = () => {
   };
 
   const fetchSnapshotStatus = async () => {
-    if (!snapshotRepo) return;
+    if (!snapshotRepo || !snapshotName) return;
     setSnapshotStatusLoading(true);
     setSnapshotStatusError(null);
     try {
-      const response = await elasticService.getSnapshotStatus(snapshotRepo);
+      const response = await elasticService.getSnapshotStatus(snapshotRepo, snapshotName);
       if (response.success && response.data) {
         setSnapshotStatus(response.data);
       } else {
-        setSnapshotStatusError(response.error || 'Не удалось получить статус восстановления');
+        setSnapshotStatusError(response.error || 'Не удалось получить статус снапшота');
       }
     } catch (error) {
       setSnapshotStatusError(`Ошибка: ${error instanceof Error ? error.message : 'Неизвестная ошибка'}`);
@@ -538,6 +539,11 @@ const DashboardPage: React.FC = () => {
   const handleSnapshotRepoChange = (value: string) => {
     setSnapshotRepo(value);
     localStorage.setItem('snapshotRepo', value);
+  };
+
+  const handleSnapshotNameChange = (value: string) => {
+    setSnapshotName(value);
+    localStorage.setItem('snapshotName', value);
   };
 
   const handleSnapshotSearchChange = (value: string) => {
@@ -1304,19 +1310,27 @@ const DashboardPage: React.FC = () => {
                       onChange={e => handleSnapshotRepoChange(e.target.value)}
                       style={{ minWidth: 200 }}
                     />
-                    <Button variant="outline" onClick={fetchSnapshotStatus} disabled={!snapshotRepo || snapshotStatusLoading}>
+                    <input
+                      type="text"
+                      className="border rounded px-2 py-1 text-xs bg-background text-foreground"
+                      placeholder="Имя снапшота"
+                      value={snapshotName}
+                      onChange={e => handleSnapshotNameChange(e.target.value)}
+                      style={{ minWidth: 200 }}
+                    />
+                    <Button variant="outline" onClick={fetchSnapshotStatus} disabled={!snapshotRepo || !snapshotName || snapshotStatusLoading}>
                       <RefreshCw className="mr-2 h-4 w-4" />
                       Обновить
                     </Button>
                   </div>
                   {snapshotStatusLoading ? (
-                    <div>Загрузка статуса восстановления...</div>
+                    <div>Загрузка статуса снапшота...</div>
                   ) : snapshotStatusError ? (
                     <div className="text-red-500">{snapshotStatusError}</div>
                   ) : snapshotStatus ? (
                     <pre className="text-xs bg-muted p-2 rounded overflow-x-auto max-h-96 whitespace-pre-wrap">{typeof snapshotStatus === 'string' ? snapshotStatus : JSON.stringify(snapshotStatus, null, 2)}</pre>
                   ) : (
-                    <div className="text-muted-foreground">Нет данных о статусе восстановления</div>
+                    <div className="text-muted-foreground">Нет данных о статусе снапшота</div>
                   )}
                 </AccordionContent>
               </AccordionItem>
