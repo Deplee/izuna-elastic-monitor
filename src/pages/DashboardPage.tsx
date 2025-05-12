@@ -1081,6 +1081,81 @@ const DashboardPage: React.FC = () => {
                 </AccordionContent>
               </AccordionItem>
             </Accordion>
+            {/* Время индексации по узлам */}
+            <Accordion type="multiple" value={openAccordionIndexingStatsNodes} onValueChange={v => { setOpenAccordionIndexingStatsNodes(v); localStorage.setItem('openAccordionIndexingStatsNodes', JSON.stringify(v)); }}>
+              <AccordionItem value="indexing-stats-nodes">
+                <AccordionTrigger>Время индексации по узлам</AccordionTrigger>
+                <AccordionContent>
+                  <div className="flex justify-end mb-2">
+                    <Button variant="outline" onClick={fetchNodesIndexingStats} disabled={nodesIndexingStatsLoading}>
+                      <RefreshCw className="mr-2 h-4 w-4" />
+                      Обновить
+                    </Button>
+                  </div>
+                  {nodesIndexingStatsLoading ? (
+                    <div>Загрузка...</div>
+                  ) : nodesIndexingStatsError ? (
+                    <div className="text-red-500">{nodesIndexingStatsError}</div>
+                  ) : nodesIndexingStats && nodesIndexingStats.nodes ? (
+                    <div className="overflow-x-auto">
+                      <table className="min-w-full text-xs">
+                        <thead>
+                          <tr>
+                            <th className="px-2 py-1 text-left cursor-pointer" onClick={() => {
+                              const newSort = {
+                                field: 'nodeId',
+                                order: indexingNodesSort.field === 'nodeId' ? (indexingNodesSort.order === 'asc' ? 'desc' : 'asc') : 'asc'
+                              };
+                              setIndexingNodesSort(newSort);
+                              localStorage.setItem('indexingNodesSort', JSON.stringify(newSort));
+                            }}>
+                              Узел {indexingNodesSort.field === 'nodeId' ? (indexingNodesSort.order === 'asc' ? '▲' : '▼') : ''}
+                            </th>
+                            <th className="px-2 py-1 text-left cursor-pointer" onClick={() => {
+                              const newSort = {
+                                field: 'time',
+                                order: indexingNodesSort.field === 'time' ? (indexingNodesSort.order === 'asc' ? 'desc' : 'asc') : 'desc'
+                              };
+                              setIndexingNodesSort(newSort);
+                              localStorage.setItem('indexingNodesSort', JSON.stringify(newSort));
+                            }}>
+                              Время индексации {indexingNodesSort.field === 'time' ? (indexingNodesSort.order === 'asc' ? '▲' : '▼') : ''}
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {Object.entries(nodesIndexingStats.nodes)
+                            .map(([nodeId, node]: [string, any]) => ({
+                              nodeId,
+                              nodeName: node.name || nodeId,
+                              time: node.indices?.indexing?.index_time_in_millis || 0
+                            }))
+                            .sort((a, b) => {
+                              if (indexingNodesSort.field === 'nodeId') {
+                                return indexingNodesSort.order === 'asc' 
+                                  ? a.nodeId.localeCompare(b.nodeId)
+                                  : b.nodeId.localeCompare(a.nodeId);
+                              } else {
+                                return indexingNodesSort.order === 'asc'
+                                  ? a.time - b.time
+                                  : b.time - a.time;
+                              }
+                            })
+                            .map(({ nodeId, nodeName, time }) => (
+                              <tr key={nodeId}>
+                                <td className="px-2 py-1">{nodeName}</td>
+                                <td className="px-2 py-1">{(time / 1000).toLocaleString(undefined, {maximumFractionDigits: 2})} сек</td>
+                              </tr>
+                            ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <div className="text-muted-foreground">Нет данных</div>
+                  )}
+                </AccordionContent>
+              </AccordionItem>
+            </Accordion>
             {/* Снапшоты */}
             <Accordion type="multiple" value={openAccordionSnapshots} onValueChange={v => { setOpenAccordionSnapshots(v); localStorage.setItem('openAccordionSnapshots', JSON.stringify(v)); }}>
               <AccordionItem value="snapshots">
