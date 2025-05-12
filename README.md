@@ -3,7 +3,7 @@ Page for monitor elasticsearch status
 
 ## Auhtorization
 
-Для авторизации в приложении необходимы выключены `CORS` со стороны `ElasticSearch`s
+Для авторизации в приложении необходимы выключены `CORS` со стороны `ElasticSearch`
 
 ## Allocation Explain
 
