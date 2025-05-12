@@ -1,7 +1,9 @@
 # izuna-elastic-monitor
 Page for monitor elasticsearch status
 
+## Auhtorization
 
+Для авторизации в приложении необходимы выключены `CORS` со стороны `ElasticSearch`s
 
 ## Allocation Explain
 
