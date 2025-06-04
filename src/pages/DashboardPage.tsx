@@ -9,6 +9,7 @@ import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '@/
 import { RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import IndexManagement from '@/components/IndexManagement';
 
 // Функция для преобразования строки размера в байты
 function parseSizeToBytes(sizeStr: string): number {
@@ -570,6 +571,7 @@ const DashboardPage: React.FC = () => {
         <TabsList>
           <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
           <TabsTrigger value="debug">Debug</TabsTrigger>
+          <TabsTrigger value="index-management">Управление индексами</TabsTrigger>
         </TabsList>
         <TabsContent value="dashboard">
           <div className="flex-grow p-6 space-y-6">
@@ -1335,6 +1337,11 @@ const DashboardPage: React.FC = () => {
                 </AccordionContent>
               </AccordionItem>
             </Accordion>
+          </div>
+        </TabsContent>
+        <TabsContent value="index-management">
+          <div className="flex-grow p-6 space-y-6">
+            <IndexManagement />
           </div>
         </TabsContent>
       </Tabs>

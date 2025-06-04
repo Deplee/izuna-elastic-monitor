@@ -628,6 +628,63 @@ class ElasticService {
     
     return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
   }
+
+  async getIndexSettings(index: string): Promise<ElasticApiResponse<any>> {
+    try {
+      const result = await this.fetchWithAuth<any>(`/${index}/_settings`);
+      if (!result.success) return result;
+      return { success: true, data: result.data };
+    } catch (error) {
+      return { 
+        success: false, 
+        error: `Ошибка получения настроек индекса: ${error instanceof Error ? error.message : String(error)}` 
+      };
+    }
+  }
+
+  async updateIndexSettings(index: string, settings: any): Promise<ElasticApiResponse<any>> {
+    try {
+      const config = this.getConfig();
+      if (!config) {
+        return { success: false, error: 'Нет данных для подключения к Elasticsearch' };
+      }
+
+      const headers = new Headers();
+      headers.set('Authorization', 'Basic ' + btoa(`${config.username}:${config.password}`));
+      headers.set('Content-Type', 'application/json');
+
+      // Используем правильный эндпоинт для обновления настроек индекса
+      const url = config.url.replace(/\/$/, '') + `/${index}/_settings`;
+      
+      // Извлекаем только настройки из структуры
+      const indexSettings = settings[index]?.settings?.index || settings;
+      
+      // Удаляем неизменяемые поля
+      const { creation_date, uuid, version, provided_name, ...mutableSettings } = indexSettings;
+      
+      const response = await fetch(url, {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify({ index: mutableSettings })
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        return { 
+          success: false, 
+          error: `Ошибка API: ${response.status} ${response.statusText}\n${errorText}` 
+        };
+      }
+
+      const data = await response.json();
+      return { success: true, data };
+    } catch (error) {
+      return { 
+        success: false, 
+        error: `Ошибка обновления настроек индекса: ${error instanceof Error ? error.message : String(error)}` 
+      };
+    }
+  }
 }
 
 // Создаем синглтон для сервиса
