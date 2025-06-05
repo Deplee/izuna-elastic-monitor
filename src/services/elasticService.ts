@@ -685,6 +685,22 @@ class ElasticService {
       };
     }
   }
+
+  /**
+   * Получить список имён индексов, соответствующих подстроке
+   * @param query часть имени индекса
+   */
+  async getIndicesList(query: string): Promise<string[]> {
+    try {
+      const result = await this.fetchWithAuth<any>('/_cat/indices?format=json');
+      if (!result.success || !Array.isArray(result.data)) return [];
+      return result.data
+        .map((item: any) => item.index)
+        .filter((name: string) => name.toLowerCase().includes(query.toLowerCase()));
+    } catch (e) {
+      return [];
+    }
+  }
 }
 
 // Создаем синглтон для сервиса

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -86,7 +86,12 @@ const IndexManagement: React.FC = () => {
   const [originalSettings, setOriginalSettings] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState(() => localStorage.getItem('indexManagement_searchTerm') || '');
   const { toast } = useToast();
+  const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const suggestionsCache = useRef<{ [key: string]: string[] }>({});
 
   // Сохраняем indexName и settings в localStorage при изменении
   useEffect(() => {
@@ -95,14 +100,19 @@ const IndexManagement: React.FC = () => {
   useEffect(() => {
     localStorage.setItem('indexManagement_settings', settings);
   }, [settings]);
+  useEffect(() => {
+    localStorage.setItem('indexManagement_searchTerm', searchTerm);
+  }, [searchTerm]);
 
   // Кнопка сброса
   const handleReset = () => {
     setIndexName('');
     setSettings('');
     setOriginalSettings(null);
+    setSearchTerm('');
     localStorage.removeItem('indexManagement_indexName');
     localStorage.removeItem('indexManagement_settings');
+    localStorage.removeItem('indexManagement_searchTerm');
   };
 
   const handleSearch = async () => {
@@ -234,6 +244,70 @@ const IndexManagement: React.FC = () => {
     }
   };
 
+  // Функция для поиска в JSON
+  const highlightSearchTerm = (text: string) => {
+    if (!searchTerm) return text;
+    const regex = new RegExp(`(${searchTerm})`, 'gi');
+    return text.split(regex).map((part, i) => 
+      regex.test(part) ? `<mark class="bg-yellow-200">${part}</mark>` : part
+    ).join('');
+  };
+
+  // Получение списка индексов для автодополнения с кешированием
+  const fetchSuggestions = async (query: string) => {
+    if (!query || query.length < 3) {
+      setSuggestions([]);
+      return;
+    }
+    if (suggestionsCache.current[query]) {
+      setSuggestions(suggestionsCache.current[query]);
+      return;
+    }
+    try {
+      const result = await elasticService.getIndicesList(query);
+      suggestionsCache.current[query] = result || [];
+      setSuggestions(result || []);
+    } catch {
+      setSuggestions([]);
+    }
+  };
+
+  // Обработка изменения поля ввода
+  const handleIndexNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setIndexName(value);
+    localStorage.setItem('indexManagement_indexName', value);
+    if (value.length >= 3) {
+      fetchSuggestions(value);
+      setShowSuggestions(true);
+    } else {
+      setSuggestions([]);
+      setShowSuggestions(false);
+    }
+  };
+
+  // Обработка выбора подсказки
+  const handleSuggestionClick = (suggestion: string) => {
+    setIndexName(suggestion);
+    localStorage.setItem('indexManagement_indexName', suggestion);
+    setShowSuggestions(false);
+    setSuggestions([]);
+    inputRef.current?.blur();
+  };
+
+  // Скрытие подсказок при клике вне
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (inputRef.current && !inputRef.current.contains(event.target as Node)) {
+        setShowSuggestions(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
   return (
     <Card>
       <CardHeader>
@@ -241,13 +315,32 @@ const IndexManagement: React.FC = () => {
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
-          <div className="flex gap-4">
-            <Input
-              placeholder="Имя индекса"
-              value={indexName}
-              onChange={(e) => setIndexName(e.target.value)}
-              disabled={loading}
-            />
+          <div className="flex gap-4 relative">
+            <div style={{ position: 'relative', width: 400 }}>
+              <Input
+                ref={inputRef}
+                placeholder="Имя индекса"
+                value={indexName}
+                onChange={handleIndexNameChange}
+                onFocus={() => { if (indexName) fetchSuggestions(indexName); setShowSuggestions(true); }}
+                autoComplete="off"
+                disabled={loading}
+              />
+              {showSuggestions && suggestions.length > 0 && (
+                <ul className="absolute z-10 bg-background border border-muted rounded shadow-lg mt-1"
+                    style={{ width: 400, maxHeight: 350, overflow: 'auto' }}>
+                  {suggestions.map((s, i) => (
+                    <li
+                      key={s}
+                      className="px-3 py-2 cursor-pointer hover:bg-muted"
+                      onMouseDown={() => handleSuggestionClick(s)}
+                    >
+                      {s}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
             <Button onClick={handleSearch} disabled={loading}>
               {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
               Найти
@@ -267,13 +360,27 @@ const IndexManagement: React.FC = () => {
             <div className="text-red-500 text-sm">{error}</div>
           )}
 
-          <Textarea
-            placeholder="Настройки индекса (JSON)"
-            value={settings}
-            onChange={(e) => setSettings(e.target.value)}
-            className="font-mono h-[400px]"
-            disabled={loading}
-          />
+          <div className="space-y-2">
+            <Input
+              placeholder="Поиск по настройкам..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              disabled={loading}
+            />
+            <Textarea
+              placeholder="Настройки индекса (JSON)"
+              value={settings}
+              onChange={(e) => setSettings(e.target.value)}
+              className="font-mono h-[400px]"
+              disabled={loading}
+            />
+            {searchTerm && settings && (
+              <div 
+                className="font-mono text-sm p-2 bg-muted rounded overflow-auto max-h-[200px]"
+                dangerouslySetInnerHTML={{ __html: highlightSearchTerm(settings) }}
+              />
+            )}
+          </div>
 
           <Button onClick={handleApply} disabled={loading || !settings}>
             {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
