@@ -84,6 +84,20 @@ const ChartsPage: React.FC = () => {
     fetchData();
   }, []);
 
+  // Динамические форматтеры для оси Y
+  const maxDeletedAt = Math.max(...deletedAtData.map(d => d.count), 0);
+  const maxDocsDeleted = Math.max(...docsDeletedData.map(d => d.docsDeleted), 0);
+
+  const yTickFormatterDeletedAt = (value: number) =>
+    maxDeletedAt >= 1_000_000
+      ? (value / 1_000_000).toFixed(1).replace(/\.0$/, '') + 'M'
+      : value.toLocaleString('en-US');
+
+  const yTickFormatterDocsDeleted = (value: number) =>
+    maxDocsDeleted >= 1_000_000
+      ? (value / 1_000_000).toFixed(1).replace(/\.0$/, '') + 'M'
+      : value.toLocaleString('en-US');
+
   return (
     <div className="p-6">
       <div className="flex items-center mb-6 gap-4">
@@ -108,10 +122,13 @@ const ChartsPage: React.FC = () => {
               <BarChart data={deletedAtData} margin={{ top: 20, right: 30, left: 0, bottom: 40 }}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="index" angle={-25} textAnchor="end" interval={0} height={90} tick={{fontSize: 13, fill: '#a3a3a3'}} />
-                <YAxis tick={{fontSize: 14, fill: '#a3a3a3'}} />
+                <YAxis
+                  tickFormatter={yTickFormatterDeletedAt}
+                  tick={{fontSize: 14, fill: '#a3a3a3'}}
+                />
                 <Tooltip content={<CustomTooltipDeletedAt />} />
                 <Legend wrapperStyle={{ fontSize: 16, color: '#34d399', marginTop: 10 }} />
-                <Bar dataKey="count" fill="#34d399" name="Count of deleted_at" radius={[6, 6, 0, 0]} />
+                <Bar dataKey="count" fill="#34d399" name="Count with deleted_at" radius={[6, 6, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -121,7 +138,10 @@ const ChartsPage: React.FC = () => {
               <BarChart data={docsDeletedData} margin={{ top: 20, right: 30, left: 0, bottom: 40 }}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="index" angle={-25} textAnchor="end" interval={0} height={90} tick={{fontSize: 13, fill: '#a3a3a3'}} />
-                <YAxis tick={{fontSize: 14, fill: '#a3a3a3'}} />
+                <YAxis
+                  tickFormatter={yTickFormatterDocsDeleted}
+                  tick={{fontSize: 14, fill: '#a3a3a3'}}
+                />
                 <Tooltip content={<CustomTooltipDocsDeleted />} />
                 <Legend wrapperStyle={{ fontSize: 16, color: '#60a5fa', marginTop: 10 }} />
                 <Bar dataKey="docsDeleted" fill="#60a5fa" name="docs.deleted" radius={[6, 6, 0, 0]} />
