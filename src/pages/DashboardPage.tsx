@@ -10,6 +10,7 @@ import { RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import IndexManagement from '@/components/IndexManagement';
+import ChartsPage from './ChartsPage';
 
 // Функция для преобразования строки размера в байты
 function parseSizeToBytes(sizeStr: string): number {
@@ -572,6 +573,7 @@ const DashboardPage: React.FC = () => {
           <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
           <TabsTrigger value="debug">Debug</TabsTrigger>
           <TabsTrigger value="index-management">Управление индексами</TabsTrigger>
+          <TabsTrigger value="charts">Графики</TabsTrigger>
         </TabsList>
         <TabsContent value="dashboard">
           <div className="flex-grow p-6 space-y-6">
@@ -1343,6 +1345,9 @@ const DashboardPage: React.FC = () => {
           <div className="flex-grow p-6 space-y-6">
             <IndexManagement />
           </div>
+        </TabsContent>
+        <TabsContent value="charts">
+          <ChartsPage />
         </TabsContent>
       </Tabs>
     </div>

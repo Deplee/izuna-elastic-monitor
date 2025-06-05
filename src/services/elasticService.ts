@@ -701,6 +701,78 @@ class ElasticService {
       return [];
     }
   }
+
+  /**
+   * Вспомогательный метод для POST-запросов с авторизацией
+   */
+  private async postWithAuth<T>(endpoint: string, body: any): Promise<ElasticApiResponse<T>> {
+    const config = this.getConfig();
+    if (!config) {
+      return { success: false, error: 'Нет данных для подключения к Elasticsearch' };
+    }
+    const headers = new Headers();
+    headers.set('Authorization', 'Basic ' + btoa(`${config.username}:${config.password}`));
+    headers.set('Content-Type', 'application/json');
+    try {
+      const url = config.url.replace(/\/$/, '') + endpoint;
+      const response = await fetch(url, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(body)
+      });
+      if (!response.ok) {
+        return { success: false, error: `Ошибка API: ${response.status} ${response.statusText}` };
+      }
+      const data = await response.json();
+      return { success: true, data };
+    } catch (error) {
+      return { success: false, error: `Ошибка подключения: ${error instanceof Error ? error.message : String(error)}` };
+    }
+  }
+
+  /**
+   * Получить агрегацию по deleted_at для всех индексов (top N)
+   */
+  async getDeletedAtAggs(size: number = 1000): Promise<ElasticApiResponse<{index: string, count: number}[]>> {
+    try {
+      const body = {
+        query: { exists: { field: 'deleted_at' } },
+        aggs: {
+          by_index: {
+            terms: { field: '_index', size }
+          }
+        },
+        size: 0
+      };
+      const result = await this.postWithAuth<any>('/_all/_search?size=0', body);
+      if (!result.success || !result.data) return { success: false, error: result.error || 'Ошибка агрегации' };
+      const buckets = result.data.aggregations?.by_index?.buckets || [];
+      const data = buckets.map((b: any) => ({ index: b.key, count: b.doc_count }));
+      return { success: true, data };
+    } catch (e) {
+      return { success: false, error: 'Ошибка агрегации: ' + (e instanceof Error ? e.message : String(e)) };
+    }
+  }
+
+  /**
+   * Получить статистику docs.deleted по всем индексам одним запросом
+   */
+  async getDocsDeletedStats(): Promise<ElasticApiResponse<{index: string, docsCount: number, docsDeleted: number}[]>> {
+    try {
+      const result = await this.fetchWithAuth<any>('/_cat/indices?format=json&h=index,docs.count,docs.deleted');
+      if (!result.success || !Array.isArray(result.data)) {
+        return { success: false, error: result.error || 'Ошибка получения docs.deleted' };
+      }
+      const data = result.data.map((item: any) => ({
+        index: item.index,
+        docsCount: parseInt(item['docs.count'] || '0', 10),
+        docsDeleted: parseInt(item['docs.deleted'] || '0', 10)
+      }));
+      return { success: true, data };
+    } catch (e) {
+      return { success: false, error: 'Ошибка получения docs.deleted: ' + (e instanceof Error ? e.message : String(e)) };
+    }
+  }
 }
 
 // Создаем синглтон для сервиса
