@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import elasticService from '@/services/elasticService';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContainer, Legend } from 'recharts';
+import MergeStatsChart from '@/components/MergeStatsChart';
 
 interface DeletedAtData {
   index: string;
@@ -43,12 +44,17 @@ const CustomTooltipDocsDeleted = ({ active, payload, label }: any) => {
 const ChartsPage: React.FC = () => {
   const [deletedAtData, setDeletedAtData] = useState<DeletedAtData[]>([]);
   const [docsDeletedData, setDocsDeletedData] = useState<DocsDeletedData[]>([]);
+  const [mergeStats, setMergeStats] = useState<any>(null);
+  const [mergeStatsLoading, setMergeStatsLoading] = useState(false);
+  const [mergeStatsError, setMergeStatsError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const fetchData = async () => {
     setLoading(true);
     setError(null);
+    setMergeStatsLoading(true);
+    setMergeStatsError(null);
     try {
       // deleted_at (Count of deleted at) — одним запросом
       const deletedAtResp = await elasticService.getDeletedAtAggs(1000);
@@ -73,10 +79,19 @@ const ChartsPage: React.FC = () => {
       }));
       docsDeletedArr.sort((a, b) => b.docsDeleted - a.docsDeleted);
       setDocsDeletedData(docsDeletedArr.slice(0, 5));
+
+      // merge stats
+      const mergeStatsResp = await elasticService.getMergeStats();
+      if (!mergeStatsResp.success || !mergeStatsResp.data) {
+        setMergeStatsError(mergeStatsResp.error || 'Ошибка получения merge stats');
+      } else {
+        setMergeStats(mergeStatsResp.data);
+      }
     } catch (e) {
       setError('Ошибка загрузки данных: ' + (e instanceof Error ? e.message : String(e)));
     } finally {
       setLoading(false);
+      setMergeStatsLoading(false);
     }
   };
 
@@ -147,6 +162,10 @@ const ChartsPage: React.FC = () => {
                 <Bar dataKey="docsDeleted" fill="#60a5fa" name="docs.deleted" radius={[6, 6, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
+          </div>
+          <div>
+            <h3 className="text-xl font-bold mb-4 text-purple-400">Merge операции по индексам</h3>
+            <MergeStatsChart data={mergeStats} isLoading={mergeStatsLoading} error={mergeStatsError} />
           </div>
         </div>
       )}

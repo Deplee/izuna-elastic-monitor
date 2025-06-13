@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import IndexManagement from '@/components/IndexManagement';
 import ChartsPage from './ChartsPage';
+import MergeStatsChart from '@/components/MergeStatsChart';
 
 // Функция для преобразования строки размера в байты
 function parseSizeToBytes(sizeStr: string): number {
@@ -197,6 +198,10 @@ const DashboardPage: React.FC = () => {
   };
 
   const { toast } = useToast();
+
+  const [mergeStats, setMergeStats] = useState<any>(null);
+  const [mergeStatsLoading, setMergeStatsLoading] = useState(false);
+  const [mergeStatsError, setMergeStatsError] = useState<string | null>(null);
 
   const fetchClusterHealth = async () => {
     setHealthLoading(true);
@@ -502,6 +507,23 @@ const DashboardPage: React.FC = () => {
     }
   };
 
+  const fetchMergeStats = async () => {
+    setMergeStatsLoading(true);
+    setMergeStatsError(null);
+    try {
+      const response = await elasticService.getMergeStats();
+      if (response.success && response.data) {
+        setMergeStats(response.data);
+      } else {
+        setMergeStatsError(response.error || 'Не удалось получить статистику merge операций');
+      }
+    } catch (error) {
+      setMergeStatsError(`Ошибка: ${error instanceof Error ? error.message : 'Неизвестная ошибка'}`);
+    } finally {
+      setMergeStatsLoading(false);
+    }
+  };
+
   const fetchAllData = () => {
     fetchClusterHealth();
     fetchNodes();
@@ -519,6 +541,7 @@ const DashboardPage: React.FC = () => {
     fetchAllocation();
     fetchSnapshots();
     fetchSnapshotStatus();
+    fetchMergeStats();
   };
 
   useEffect(() => {
